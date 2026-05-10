@@ -1,0 +1,170 @@
+pipeline {
+    agent {
+        label 'test-chaos-vm'
+    }
+
+    environment {
+        IMG_DIR  = '/var/lib/libvirt/images'
+        OUT_QCOW = 'Rocky-8-GenericCloud.latest.x86_64.qcow2'
+        OUT_RAW  = 'Rocky-8-GenericCloud.latest.x86_64.raw'
+    }
+
+    stages {
+        stage('Install Packer + QEMU') {
+            steps {
+                sh '''
+                    set -e
+                    PACKER_VERSION=1.11.2
+                    sudo rm -f /etc/apt/sources.list.d/hashicorp.list /etc/apt/sources.list.d/hashicorp.sources
+                    if ! command -v packer >/dev/null 2>&1; then
+                        sudo apt-get update -y
+                        sudo apt-get install -y wget unzip
+                        TMP=$(mktemp -d)
+                        cd "${TMP}"
+                        wget -q "https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip"
+                        unzip -o "packer_${PACKER_VERSION}_linux_amd64.zip"
+                        sudo install -m 0755 packer /usr/local/bin/packer
+                        cd - >/dev/null
+                        rm -rf "${TMP}"
+                    fi
+                    sudo apt-get install -y qemu-system-x86 qemu-utils
+                    packer version
+                '''
+            }
+        }
+
+        stage('Ensure SSH key') {
+            steps {
+                sh '''
+                    set -e
+                    if [ ! -f /root/.ssh/id_rsa ]; then
+                        sudo ssh-keygen -t rsa -b 4096 -f /root/.ssh/id_rsa -N ""
+                    fi
+                '''
+            }
+        }
+
+        stage('Write Packer template') {
+            steps {
+                writeFile file: 'packer/rocky8.pkr.hcl', text: '''
+packer {
+  required_plugins {
+    qemu = {
+      source  = "github.com/hashicorp/qemu"
+      version = "~> 1.1"
+    }
+  }
+}
+
+variable "iso_url" {
+  type    = string
+  default = "file:///var/lib/libvirt/images/Rocky-8-GenericCloud.latest.x86_64.qcow2"
+}
+
+variable "ssh_public_key" {
+  type = string
+}
+
+variable "ssh_private_key_file" {
+  type    = string
+  default = "/root/.ssh/id_rsa"
+}
+
+variable "output_dir" {
+  type    = string
+  default = "output-rocky8"
+}
+
+variable "vm_name" {
+  type    = string
+  default = "Rocky-8-GenericCloud.latest.x86_64.qcow2"
+}
+
+source "qemu" "rocky8" {
+  iso_url              = var.iso_url
+  iso_checksum         = "none"
+  disk_image           = true
+  output_directory     = var.output_dir
+  vm_name              = var.vm_name
+  format               = "qcow2"
+  accelerator          = "kvm"
+  cpus                 = 2
+  memory               = 2048
+  disk_size            = "20G"
+  disk_interface       = "virtio"
+  net_device           = "virtio-net"
+  headless             = true
+  shutdown_command     = "sudo shutdown -h now"
+  ssh_username         = "rocky"
+  ssh_private_key_file = var.ssh_private_key_file
+  ssh_timeout          = "10m"
+  cd_label             = "cidata"
+  cd_content = {
+    "meta-data" = "instance-id: rocky8-packer\\nlocal-hostname: rocky8-packer\\n"
+    "user-data" = <<-EOT
+      #cloud-config
+      users:
+        - name: rocky
+          sudo: ALL=(ALL) NOPASSWD:ALL
+          shell: /bin/bash
+          ssh_authorized_keys:
+            - ${var.ssh_public_key}
+    EOT
+  }
+  qemuargs = [
+    ["-cpu", "host"],
+  ]
+}
+
+build {
+  sources = ["source.qemu.rocky8"]
+
+  provisioner "shell" {
+    inline = [
+      "sudo cloud-init status --wait || true",
+      "sudo dnf install -y python39 python3-libselinux",
+      "sudo alternatives --set python3 /usr/bin/python3.9 || true",
+      "python3 --version",
+      "sudo dnf clean all",
+      "sudo rm -rf /var/cache/dnf /tmp/* /var/tmp/*",
+    ]
+  }
+}
+'''
+            }
+        }
+
+        stage('Packer build') {
+            steps {
+                sh '''
+                    set -e
+                    cd packer
+                    sudo packer init rocky8.pkr.hcl
+                    sudo rm -rf output-rocky8
+                    sudo packer build \
+                        -var "ssh_public_key=$(sudo cat /root/.ssh/id_rsa.pub)" \
+                        rocky8.pkr.hcl
+                '''
+            }
+        }
+
+        stage('Publish image') {
+            steps {
+                sh '''
+                    set -e
+                    sudo mkdir -p ${IMG_DIR}
+                    sudo mv -f packer/output-rocky8/${OUT_QCOW} ${IMG_DIR}/${OUT_QCOW}
+                    sudo qemu-img convert -f qcow2 -O raw \
+                        ${IMG_DIR}/${OUT_QCOW} ${IMG_DIR}/${OUT_RAW}
+                    ls -lh ${IMG_DIR}/${OUT_QCOW} ${IMG_DIR}/${OUT_RAW}
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Built ${IMG_DIR}/${OUT_RAW} - update molecule/rocky8/molecule.yml image: field to use it."
+        }
+    }
+}

@@ -1,0 +1,87 @@
+pipeline {
+    agent {
+        label 'test-chaos-vm'
+    }
+
+    environment {
+        REPO_URL   = 'https://github.com/panchal-yash/qemu-kvm-molecule.git'
+        VENV_DIR   = "${env.HOME}/.venv/molecule_qemu"
+    }
+
+    stages {
+        stage('Cleanup stale VMs') {
+            steps {
+                sh '''
+                    set +e
+                    echo "Killing any running qemu-system processes..."
+                    sudo pkill -9 -f qemu-system-x86_64 || true
+                    echo "Removing stale pidfiles, disks, and cloud-init artifacts..."
+                    sudo rm -f /tmp/qemu-*.pid
+                    sudo rm -f /tmp/molecule-*.raw
+                    sudo rm -f /tmp/cloud-init-*.iso
+                    sudo rm -rf /tmp/cloud-init-*
+                    echo "Remaining qemu processes (should be none):"
+                    pgrep -af qemu-system-x86_64 || true
+                '''
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                deleteDir()
+                git url: env.REPO_URL, branch: 'main'
+            }
+        }
+
+        stage('Setup') {
+            steps {
+                sh '''
+                    set -e
+                    sudo bash setup.sh
+                '''
+            }
+        }
+
+        stage('Molecule Test') {
+            steps {
+                script {
+                    def scenarios = [
+                        'debian11', 'debian12', 'debian13',
+                        'ubuntu22', 'ubuntu23', 'ubuntu24',
+                        'rocky8',   'rocky9',   'rocky10'
+                    ]
+
+                    def branches = [:]
+                    for (s in scenarios) {
+                        def name = s
+                        branches[name] = {
+                            stage(name) {
+                                sh """
+                                    set -e
+                                    . ${VENV_DIR}/bin/activate
+                                    molecule create  -s ${name}
+                                    molecule converge -s ${name}
+                                    molecule destroy -s ${name}
+                                """
+                            }
+                        }
+                    }
+                    parallel branches
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh '''
+                if [ -d "${VENV_DIR}" ]; then
+                    . ${VENV_DIR}/bin/activate
+                    for s in debian11 debian12 debian13 ubuntu22 ubuntu23 ubuntu24 rocky8 rocky9 rocky10; do
+                        molecule destroy -s ${s} || true
+                    done
+                fi
+            '''
+        }
+    }
+}
