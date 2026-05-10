@@ -1,0 +1,27 @@
+---
+driver:
+  name: default
+  options:
+    managed: true
+
+platforms:
+  - name: debian13
+    image: /var/lib/libvirt/images/debian-13-genericcloud-amd64.raw
+    memory: 2048
+    cpus: 2
+    disk_size: 20G
+    ssh_port: 2232
+    ssh_user: debian
+    ssh_key: ~/.ssh/id_rsa
+    disk_interface: virtio
+
+provisioner:
+  name: ansible
+  log: true
+  playbooks:
+    create: ../shared/create.yml
+    destroy: ../shared/destroy.yml
+    converge: ../shared/converge.yml
+
+verifier:
+  name: ansible

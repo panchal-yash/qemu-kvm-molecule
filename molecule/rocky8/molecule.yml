@@ -1,0 +1,27 @@
+---
+driver:
+  name: default
+  options:
+    managed: true
+
+platforms:
+  - name: rocky8
+    image: /var/lib/libvirt/images/Rocky-8-GenericCloud.latest.x86_64.raw
+    memory: 2048
+    cpus: 2
+    disk_size: 20G
+    ssh_port: 2236
+    ssh_user: rocky
+    ssh_key: ~/.ssh/id_rsa
+    disk_interface: virtio
+
+provisioner:
+  name: ansible
+  log: true
+  playbooks:
+    create: ../shared/create.yml
+    destroy: ../shared/destroy.yml
+    converge: ../shared/converge.yml
+
+verifier:
+  name: ansible
