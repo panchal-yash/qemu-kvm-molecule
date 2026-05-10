@@ -13,7 +13,7 @@ python3 -m venv "${VENV_DIR}"
 source "${VENV_DIR}/bin/activate"
 
 pip install --upgrade pip
-pip install molecule==25.1.0 molecule-plugins==23.7.0 ansible-core==2.18.13
+pip install "molecule>=25.6.0" "molecule-plugins>=23.7.0" "ansible-core>=2.20.0"
 
 ansible-galaxy collection install ansible.posix community.general
 
