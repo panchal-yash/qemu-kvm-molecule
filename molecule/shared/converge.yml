@@ -8,7 +8,7 @@
   tasks:
     - name: Wait for system to be ready
       ansible.builtin.wait_for_connection:
-        timeout: 300
+        timeout: 30
 
     - name: Get OS release info
       ansible.builtin.command: cat /etc/os-release
