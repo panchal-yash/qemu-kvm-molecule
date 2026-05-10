@@ -113,3 +113,21 @@
           {% endfor %}
         dest: "{{ molecule_instance_config }}"
         mode: '0644'
+
+    - name: Wait until cloud-init has provisioned the user (real SSH login)
+      ansible.builtin.command: >
+        ssh
+          -i {{ item.ssh_key | default('~/.ssh/id_rsa') }}
+          -p {{ item.ssh_port }}
+          -o StrictHostKeyChecking=no
+          -o UserKnownHostsFile=/dev/null
+          -o BatchMode=yes
+          -o ConnectTimeout=5
+          {{ item.ssh_user }}@127.0.0.1
+          true
+      register: ssh_probe
+      retries: 60
+      delay: 5
+      until: ssh_probe.rc == 0
+      changed_when: false
+      loop: "{{ molecule_yml.platforms }}"
