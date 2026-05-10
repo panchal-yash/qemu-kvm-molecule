@@ -90,11 +90,14 @@
       when: item.stdout == "not running"
       loop: "{{ vm_status.results }}"
 
-    - name: Wait for SSH
+    - name: Wait for guest sshd to respond
       ansible.builtin.wait_for:
         host: 127.0.0.1
         port: "{{ item.ssh_port }}"
-        timeout: 300
+        search_regex: "SSH-"
+        delay: 5
+        sleep: 3
+        timeout: 600
       loop: "{{ molecule_yml.platforms }}"
 
     - name: Create molecule instance config
@@ -110,7 +113,3 @@
           {% endfor %}
         dest: "{{ molecule_instance_config }}"
         mode: '0644'
-
-    - name: Wait for cloud-init to finish
-      ansible.builtin.pause:
-        seconds: 30
