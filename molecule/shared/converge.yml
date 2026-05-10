@@ -1,7 +1,7 @@
 ---
 - name: Converge
   hosts: all
-  gather_facts: true
+  gather_facts: false
   vars:
     ansible_ssh_private_key_file: ~/.ssh/id_rsa
     ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
@@ -18,38 +18,3 @@
     - name: Show OS release
       ansible.builtin.debug:
         var: os_release.stdout_lines
-
-    - name: Update package cache (Debian/Ubuntu)
-      ansible.builtin.apt:
-        update_cache: yes
-        cache_valid_time: 3600
-      become: true
-      when: ansible_facts['os_family'] == "Debian"
-
-    - name: Update package cache (RHEL family)
-      ansible.builtin.dnf:
-        update_cache: yes
-      become: true
-      when: ansible_facts['os_family'] == "RedHat"
-
-    - name: Install baseline packages (Debian/Ubuntu)
-      ansible.builtin.apt:
-        name:
-          - curl
-          - wget
-          - vim
-          - python3
-        state: present
-      become: true
-      when: ansible_facts['os_family'] == "Debian"
-
-    - name: Install baseline packages (RHEL family)
-      ansible.builtin.dnf:
-        name:
-          - curl
-          - wget
-          - vim
-          - python3
-        state: present
-      become: true
-      when: ansible_facts['os_family'] == "RedHat"
