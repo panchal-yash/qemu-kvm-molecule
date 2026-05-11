@@ -1,0 +1,59 @@
+---
+# Runs after `molecule create`, before `molecule converge`.
+# Goal: leave each VM in a state where the upstream pxb_80.yml playbook's apt /
+# dnf calls don't race against cloud-init's first-boot package operations.
+- name: Prepare guest for converge
+  hosts: all
+  gather_facts: true
+  become: true
+  vars:
+    ansible_ssh_private_key_file: ~/.ssh/id_rsa
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  tasks:
+    - name: Wait for cloud-init to complete its first-boot work
+      ansible.builtin.command: cloud-init status --wait
+      changed_when: false
+      failed_when: false
+
+    - name: Stop apt-daily timers and unattended-upgrades (Debian/Ubuntu)
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - apt-daily.timer
+        - apt-daily-upgrade.timer
+        - apt-daily.service
+        - apt-daily-upgrade.service
+        - unattended-upgrades.service
+      when: ansible_facts['os_family'] == "Debian"
+      failed_when: false
+
+    - name: Wait for dpkg/apt locks to be free (Debian/Ubuntu)
+      ansible.builtin.shell: |
+        while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 \
+              || fuser /var/lib/dpkg/lock >/dev/null 2>&1 \
+              || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+          sleep 3
+        done
+      changed_when: false
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Wait for dnf locks to clear (RHEL family)
+      ansible.builtin.shell: |
+        while fuser /var/cache/dnf/metadata_lock.pid >/dev/null 2>&1 \
+              || pgrep -x 'dnf-automatic' >/dev/null 2>&1 \
+              || pgrep -x 'packagekitd' >/dev/null 2>&1; do
+          sleep 3
+        done
+      changed_when: false
+      when: ansible_facts['os_family'] == "RedHat"
+
+    - name: Show OS release (sanity)
+      ansible.builtin.command: cat /etc/os-release
+      register: os_release
+      changed_when: false
+
+    - name: Display OS
+      ansible.builtin.debug:
+        var: os_release.stdout_lines

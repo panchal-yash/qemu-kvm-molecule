@@ -75,23 +75,28 @@ pipeline {
                         'ubuntu22', 'ubuntu23', 'ubuntu24',
                         'rocky8',   'rocky9',   'rocky10'
                     ]
-
-                    def branches = [:]
-                    for (s in scenarios) {
-                        def name = s
-                        branches[name] = {
-                            stage(name) {
-                                sh """
-                                    set -e
-                                    . ${VENV_DIR}/bin/activate
-                                    molecule create  -s ${name}
-                                    molecule converge -s ${name}
-                                    molecule destroy -s ${name}
-                                """
+                    // Run in chunks of 4 (host has ~25 GB free for VMs; 4 × 4 GB = 16 GB).
+                    int batchSize = 4
+                    scenarios.collate(batchSize).eachWithIndex { batch, idx ->
+                        stage("Batch ${idx + 1}: ${batch.join(', ')}") {
+                            def branches = [:]
+                            for (s in batch) {
+                                def name = s
+                                branches[name] = {
+                                    stage(name) {
+                                        sh """
+                                            set -e
+                                            . ${VENV_DIR}/bin/activate
+                                            molecule create   -s ${name}
+                                            molecule converge -s ${name}
+                                            molecule destroy  -s ${name}
+                                        """
+                                    }
+                                }
                             }
+                            parallel branches
                         }
                     }
-                    parallel branches
                 }
             }
         }
