@@ -3,5 +3,5 @@
 # Imported as-is so its relative `../tasks/*.yml` references resolve correctly.
 # Required:
 #   - Repo cloned to ${HOME}/package-testing (handled by setup.sh / setup-arm.sh).
-#   - Env var server_to_test (e.g. "ps-80") set by the Jenkinsfile / shell.
-- import_playbook: "{{ lookup('env', 'HOME') }}/package-testing/playbooks/pxb_80.yml"
+#   - Env var server_to_test (e.g. "ps-84") set by the Jenkinsfile / shell.
+- import_playbook: "{{ lookup('env', 'HOME') }}/package-testing/playbooks/pxb_84.yml"
