@@ -6,7 +6,7 @@ driver:
 
 platforms:
   - name: ubuntu24
-    image: /var/lib/libvirt/images/noble-server-cloudimg-amd64.raw
+    image: ${HOME}/qemu-images/noble-server-cloudimg-amd64.raw
     memory: 2048
     cpus: 2
     disk_size: 20G

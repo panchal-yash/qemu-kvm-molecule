@@ -6,7 +6,7 @@ driver:
 
 platforms:
   - name: ubuntu23
-    image: /var/lib/libvirt/images/mantic-server-cloudimg-amd64.raw
+    image: ${HOME}/qemu-images/mantic-server-cloudimg-amd64.raw
     memory: 2048
     cpus: 2
     disk_size: 20G

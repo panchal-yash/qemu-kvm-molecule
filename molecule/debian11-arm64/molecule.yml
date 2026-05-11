@@ -7,7 +7,7 @@ driver:
 platforms:
   - name: debian11-arm64
     arch: arm64
-    image: /var/lib/libvirt/images/debian-11-genericcloud-arm64.raw
+    image: ${HOME}/qemu-images/debian-11-genericcloud-arm64.raw
     memory: 2048
     cpus: 2
     disk_size: 20G

@@ -8,19 +8,16 @@ set -e
 [ "$(uname)" = "Linux" ] || { echo "setup.sh is for Linux. On macOS use ./setup-arm.sh"; exit 1; }
 
 VENV_DIR="${HOME}/.venv/molecule_qemu"
-IMG_DIR=/var/lib/libvirt/images
+IMG_DIR="${HOME}/qemu-images"
 
 apt-get update -y
 apt-get install -y qemu-system qemu-system-arm qemu-efi-aarch64 \
-    python3 python3-venv python3-pip genisoimage \
-    libvirt-clients libvirt-daemon-system wget
+    python3 python3-venv python3-pip genisoimage wget
 
 if [ ! -f /usr/share/AAVMF/AAVMF_CODE.fd ] && [ ! -f /usr/share/qemu-efi-aarch64/QEMU_EFI.fd ]; then
     echo "ERROR: no arm64 UEFI firmware found after install"
     exit 1
 fi
-
-systemctl enable --now libvirtd
 
 python3 -m venv "${VENV_DIR}"
 # shellcheck disable=SC1091

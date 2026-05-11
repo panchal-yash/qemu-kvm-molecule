@@ -14,7 +14,7 @@
 set -e
 
 VENV_DIR="${HOME}/.venv/molecule_qemu"
-IMG_DIR=/var/lib/libvirt/images
+IMG_DIR="${HOME}/qemu-images"
 
 IMAGES=(
   "https://cloud.debian.org/images/cloud/bullseye/latest/debian-11-genericcloud-arm64.qcow2 debian-11-genericcloud-arm64"
@@ -63,10 +63,9 @@ if [ ! -f "${HOME}/.ssh/id_rsa" ]; then
     ssh-keygen -t rsa -b 4096 -f "${HOME}/.ssh/id_rsa" -N ""
 fi
 
-# ─── Image directory ──────────────────────────────────────────────────────────
-echo "→ Preparing ${IMG_DIR} (requires sudo)"
-sudo mkdir -p "${IMG_DIR}"
-sudo chown "$(id -u):$(id -g)" "${IMG_DIR}"
+# ─── Image directory (under $HOME — no sudo, persistent across reboots) ──────
+mkdir -p "${IMG_DIR}"
+echo "→ Using image directory ${IMG_DIR}"
 
 # ─── Download cloud images ────────────────────────────────────────────────────
 echo "→ Downloading arm64 cloud images"

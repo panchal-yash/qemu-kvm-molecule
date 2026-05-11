@@ -4,7 +4,7 @@ pipeline {
     }
 
     environment {
-        IMG_DIR  = '/var/lib/libvirt/images'
+        IMG_DIR  = "${env.HOME}/qemu-images"
         OUT_QCOW = 'Rocky-8-GenericCloud.latest.x86_64.qcow2'
         OUT_RAW  = 'Rocky-8-GenericCloud.latest.x86_64.raw'
     }
@@ -57,8 +57,7 @@ packer {
 }
 
 variable "iso_url" {
-  type    = string
-  default = "file:///var/lib/libvirt/images/Rocky-8-GenericCloud.latest.x86_64.qcow2"
+  type = string
 }
 
 variable "ssh_public_key" {
@@ -143,6 +142,7 @@ build {
                     sudo rm -rf output-rocky8
                     sudo packer build \
                         -var "ssh_public_key=$(sudo cat /root/.ssh/id_rsa.pub)" \
+                        -var "iso_url=file://${IMG_DIR}/Rocky-8-GenericCloud.latest.x86_64.qcow2" \
                         rocky8.pkr.hcl
                 '''
             }

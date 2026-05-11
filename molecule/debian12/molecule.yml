@@ -6,7 +6,7 @@ driver:
 
 platforms:
   - name: debian12
-    image: /var/lib/libvirt/images/debian-12-genericcloud-amd64.raw
+    image: ${HOME}/qemu-images/debian-12-genericcloud-amd64.raw
     memory: 2048
     cpus: 2
     disk_size: 20G

@@ -76,7 +76,6 @@ pipeline {
                                 sh """
                                     set -e
                                     . \${VENV_DIR}/bin/activate
-                                    cd molecule
                                     molecule create   -s ${name}
                                     molecule converge -s ${name}
                                     molecule destroy  -s ${name}
@@ -96,7 +95,6 @@ pipeline {
                 set +e
                 if [ -d "${VENV_DIR}" ]; then
                     . ${VENV_DIR}/bin/activate
-                    cd molecule
                     for s in debian11-arm64 debian12-arm64 debian13-arm64; do
                         molecule destroy -s "$s" || true
                     done
