@@ -1,0 +1,114 @@
+// Local Jenkins (macOS Apple Silicon) — run arm64 molecule scenarios natively via HVF.
+// Use with brew-installed Jenkins; the controller's built-in agent runs the steps.
+//
+//   brew install jenkins-lts && brew services start jenkins-lts
+//   open http://localhost:8080
+//
+// Configure this job as a Pipeline pointing at this file.
+
+pipeline {
+    agent { label 'built-in' }
+
+    options {
+        timestamps()
+        timeout(time: 45, unit: 'MINUTES')
+    }
+
+    parameters {
+        string(name: 'REPO_URL',
+               defaultValue: 'https://github.com/panchal-yash/qemu-kvm-molecule.git',
+               description: 'Repo to clone.')
+        string(name: 'BRANCH',
+               defaultValue: 'main',
+               description: 'Branch to check out.')
+    }
+
+    environment {
+        VENV_DIR = "${env.HOME}/.venv/molecule_qemu"
+        PATH     = "/opt/homebrew/bin:/opt/homebrew/sbin:${env.PATH}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                deleteDir()
+                git url: params.REPO_URL, branch: params.BRANCH
+            }
+        }
+
+        stage('Cleanup stale VMs') {
+            steps {
+                sh '''
+                    set +e
+                    echo "→ Killing any leftover qemu-system-aarch64 processes"
+                    pkill -9 -f 'qemu-system-aarch64' || true
+                    echo "→ Removing stale pidfiles, disks, logs, NVRAM"
+                    rm -f /tmp/qemu-*.pid
+                    rm -f /tmp/qemu-*-serial.log /tmp/qemu-*-qemu.log /tmp/qemu-*-stderr.log
+                    rm -f /tmp/qemu-*-vars.fd
+                    rm -f /tmp/molecule-*.raw
+                    rm -f /tmp/cloud-init-*.iso
+                    rm -rf /tmp/cloud-init-*
+                    echo "→ Remaining qemu processes:"
+                    pgrep -af qemu-system || true
+                '''
+            }
+        }
+
+        stage('Setup arm64') {
+            steps {
+                sh '''
+                    set -e
+                    ./setup-arm.sh
+                '''
+            }
+        }
+
+        stage('Molecule (parallel)') {
+            steps {
+                script {
+                    def scenarios = ['debian11-arm64', 'debian12-arm64', 'debian13-arm64']
+                    def branches = [:]
+                    for (s in scenarios) {
+                        def name = s
+                        branches[name] = {
+                            stage(name) {
+                                sh """
+                                    set -e
+                                    . \${VENV_DIR}/bin/activate
+                                    cd molecule
+                                    molecule create   -s ${name}
+                                    molecule converge -s ${name}
+                                    molecule destroy  -s ${name}
+                                """
+                            }
+                        }
+                    }
+                    parallel branches
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh '''
+                set +e
+                if [ -d "${VENV_DIR}" ]; then
+                    . ${VENV_DIR}/bin/activate
+                    cd molecule
+                    for s in debian11-arm64 debian12-arm64 debian13-arm64; do
+                        molecule destroy -s "$s" || true
+                    done
+                fi
+                # Surface boot/serial logs for any failed scenario
+                for f in /tmp/qemu-*-serial.log /tmp/qemu-*-stderr.log; do
+                    if [ -s "$f" ]; then
+                        echo "=== $f (tail) ==="
+                        tail -100 "$f"
+                    fi
+                done
+            '''
+        }
+    }
+}
