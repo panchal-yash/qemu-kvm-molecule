@@ -18,6 +18,10 @@ platforms:
 provisioner:
   name: ansible
   log: true
+  inventory:
+    host_vars:
+      ubuntu20:
+        ansible_python_interpreter: /usr/bin/python3.9
   playbooks:
     create: ../shared/create.yml
     destroy: ../shared/destroy.yml
