@@ -20,10 +20,8 @@ IMAGES=(
   "https://cloud.debian.org/images/cloud/bullseye/latest/debian-11-genericcloud-arm64.qcow2 debian-11-genericcloud-arm64"
   "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-arm64.qcow2 debian-12-genericcloud-arm64"
   "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-arm64.qcow2 debian-13-genericcloud-arm64"
-  "https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-arm64.img focal-server-cloudimg-arm64"
   "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-arm64.img jammy-server-cloudimg-arm64"
   "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img noble-server-cloudimg-arm64"
-  "https://download.rockylinux.org/pub/rocky/8/images/aarch64/Rocky-8-GenericCloud.latest.aarch64.qcow2 Rocky-8-GenericCloud.latest.aarch64"
   "https://download.rockylinux.org/pub/rocky/9/images/aarch64/Rocky-9-GenericCloud.latest.aarch64.qcow2 Rocky-9-GenericCloud.latest.aarch64"
   "https://download.rockylinux.org/pub/rocky/10/images/aarch64/Rocky-10-GenericCloud-Base.latest.aarch64.qcow2 Rocky-10-GenericCloud.latest.aarch64"
 )
@@ -56,26 +54,11 @@ fi
 echo "→ Python venv at ${VENV_DIR}"
 PY="$(brew --prefix)/bin/python3.12"
 [ -x "$PY" ] || PY="$(command -v python3)"
-# Recreate if our pin floor changed
-if [ -f "${VENV_DIR}/bin/ansible" ]; then
-    if "${VENV_DIR}/bin/python" -c \
-        "import importlib.metadata as m; v=m.version('ansible-core'); raise SystemExit(0 if v.startswith('2.16') or v.startswith('2.17') else 1)" \
-        2>/dev/null; then
-        echo "  existing venv already on supported ansible-core, keeping"
-    else
-        echo "  existing venv has unsupported ansible-core, recreating"
-        rm -rf "${VENV_DIR}"
-    fi
-fi
 "$PY" -m venv "${VENV_DIR}"
 # shellcheck disable=SC1091
 source "${VENV_DIR}/bin/activate"
 pip install --upgrade pip
-pip install \
-    "ansible-core>=2.16,<2.18" \
-    "ansible-compat>=3,<4" \
-    "molecule>=24.0,<25" \
-    "molecule-plugins>=23.7.0,<24"
+pip install "molecule>=25.6.0" "molecule-plugins>=23.7.0" "ansible-core>=2.20.0"
 ansible-galaxy collection install ansible.posix community.general
 
 # ─── SSH key ──────────────────────────────────────────────────────────────────
