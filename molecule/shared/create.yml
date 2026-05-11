@@ -1,7 +1,7 @@
 ---
 - name: Create VM with QEMU
   hosts: localhost
-  gather_facts: false
+  gather_facts: true
   tasks:
     - name: Create disk from raw base image
       ansible.builtin.command: >
@@ -104,9 +104,14 @@
         mode: '0644'
       vars:
         aavmf_vars_src: >-
-          {{ '/usr/share/AAVMF/AAVMF_VARS.fd'
-             if (lookup('ansible.builtin.fileglob', '/usr/share/AAVMF/AAVMF_VARS.fd') | length > 0)
-             else '/usr/share/qemu-efi-aarch64/QEMU_VARS.fd' }}
+          {{
+            '/opt/homebrew/share/qemu/edk2-arm-vars.fd'
+              if ansible_system == 'Darwin' and
+                 (lookup('ansible.builtin.fileglob', '/opt/homebrew/share/qemu/edk2-arm-vars.fd') | length > 0)
+            else '/usr/share/AAVMF/AAVMF_VARS.fd'
+              if (lookup('ansible.builtin.fileglob', '/usr/share/AAVMF/AAVMF_VARS.fd') | length > 0)
+            else '/usr/share/qemu-efi-aarch64/QEMU_VARS.fd'
+          }}
       when:
         - item.stdout == "not running"
         - (item.item.arch | default('amd64')) == 'arm64'
@@ -117,15 +122,15 @@
         qemu-system-aarch64 \
           -name {{ item.item.name }} \
           -M virt \
-          -cpu max \
+          {{ accel_cpu }} \
           -m {{ item.item.memory }} \
           -smp {{ item.item.cpus }} \
           -drive if=pflash,format=raw,readonly=on,file={{ aavmf_code }} \
           -drive if=pflash,format=raw,file=/tmp/qemu-{{ item.item.name }}-vars.fd \
           -drive file=/tmp/molecule-{{ item.item.name }}.raw,format=raw,if=none,id=disk0,cache=unsafe,aio=threads \
-          -device virtio-blk-device,drive=disk0 \
+          -device virtio-blk-device,drive=disk0,bootindex=0 \
           -drive file=/tmp/cloud-init-{{ item.item.name }}.iso,format=raw,if=none,id=cdrom0,readonly=on \
-          -device virtio-blk-device,drive=cdrom0 \
+          -device virtio-blk-device,drive=cdrom0,bootindex=1 \
           -netdev user,id=net0,hostfwd=tcp::{{ item.item.ssh_port }}-:22 \
           -device virtio-net-device,netdev=net0 \
           -serial file:/tmp/qemu-{{ item.item.name }}-serial.log \
@@ -135,10 +140,17 @@
           -pidfile /tmp/qemu-{{ item.item.name }}.pid \
           2> /tmp/qemu-{{ item.item.name }}-stderr.log
       vars:
+        accel_cpu: >-
+          {{ '-accel hvf -cpu host' if ansible_system == 'Darwin' else '-cpu max' }}
         aavmf_code: >-
-          {{ '/usr/share/AAVMF/AAVMF_CODE.fd'
-             if (lookup('ansible.builtin.fileglob', '/usr/share/AAVMF/AAVMF_CODE.fd') | length > 0)
-             else '/usr/share/qemu-efi-aarch64/QEMU_EFI.fd' }}
+          {{
+            '/opt/homebrew/share/qemu/edk2-aarch64-code.fd'
+              if ansible_system == 'Darwin' and
+                 (lookup('ansible.builtin.fileglob', '/opt/homebrew/share/qemu/edk2-aarch64-code.fd') | length > 0)
+            else '/usr/share/AAVMF/AAVMF_CODE.fd'
+              if (lookup('ansible.builtin.fileglob', '/usr/share/AAVMF/AAVMF_CODE.fd') | length > 0)
+            else '/usr/share/qemu-efi-aarch64/QEMU_EFI.fd'
+          }}
       when:
         - item.stdout == "not running"
         - (item.item.arch | default('amd64')) == 'arm64'
