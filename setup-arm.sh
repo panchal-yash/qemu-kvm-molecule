@@ -91,6 +91,8 @@ for entry in "${IMAGES[@]}"; do
         fi
         echo "  converting ${src} -> ${raw}"
         qemu-img convert -f qcow2 -O raw "${src}" "${raw}"
+        # Conversion done — drop the .qcow2 source to save disk
+        rm -f "${src}"
     else
         echo "  already present: ${raw}"
     fi
