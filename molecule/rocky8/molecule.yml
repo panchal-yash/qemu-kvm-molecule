@@ -7,7 +7,7 @@ driver:
 platforms:
   - name: rocky8
     image: ${HOME}/qemu-images/Rocky-8-GenericCloud.latest.x86_64.raw
-    memory: 2048
+    memory: 4096
     cpus: 2
     disk_size: 12G
     ssh_port: 2236

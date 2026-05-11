@@ -8,7 +8,7 @@ platforms:
   - name: ubuntu23-arm64
     arch: arm64
     image: ${HOME}/qemu-images/mantic-server-cloudimg-arm64.raw
-    memory: 1536
+    memory: 4096
     cpus: 2
     disk_size: 12G
     ssh_port: 2244
