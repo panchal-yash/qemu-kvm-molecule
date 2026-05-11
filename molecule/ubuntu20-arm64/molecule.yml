@@ -5,9 +5,9 @@ driver:
     managed: true
 
 platforms:
-  - name: ubuntu23-arm64
+  - name: ubuntu20-arm64
     arch: arm64
-    image: ${HOME}/qemu-images/mantic-server-cloudimg-arm64.raw
+    image: ${HOME}/qemu-images/focal-server-cloudimg-arm64.raw
     memory: 4096
     cpus: 2
     disk_size: 12G
