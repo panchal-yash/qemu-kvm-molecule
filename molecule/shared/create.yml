@@ -141,7 +141,14 @@
           2> /tmp/qemu-{{ item.item.name }}-stderr.log
       vars:
         accel_cpu: >-
-          {{ '-accel hvf -cpu host' if ansible_facts['system'] == 'Darwin' else '-cpu max' }}
+          {{
+            '-accel hvf -cpu host'
+              if ansible_facts['system'] == 'Darwin'
+            else '-enable-kvm -cpu host'
+              if (ansible_facts['system'] == 'Linux' and
+                  ansible_facts['architecture'] in ['aarch64', 'arm64'])
+            else '-cpu max'
+          }}
         aavmf_code: >-
           {{
             '/opt/homebrew/share/qemu/edk2-aarch64-code.fd'
