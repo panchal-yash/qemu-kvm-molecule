@@ -5,14 +5,14 @@ driver:
     managed: true
 
 platforms:
-  - name: debian13-arm64
+  - name: ubuntu22-arm64
     arch: arm64
-    image: ${HOME}/qemu-images/debian-13-genericcloud-arm64.raw
+    image: ${HOME}/qemu-images/jammy-server-cloudimg-arm64.raw
     memory: 1536
     cpus: 2
     disk_size: 12G
-    ssh_port: 2242
-    ssh_user: debian
+    ssh_port: 2243
+    ssh_user: ubuntu
     ssh_key: ~/.ssh/id_rsa
     disk_interface: virtio
 

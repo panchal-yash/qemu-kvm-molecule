@@ -8,7 +8,7 @@ platforms:
   - name: debian11-arm64
     arch: arm64
     image: ${HOME}/qemu-images/debian-11-genericcloud-arm64.raw
-    memory: 2048
+    memory: 1536
     cpus: 2
     disk_size: 12G
     ssh_port: 2241
