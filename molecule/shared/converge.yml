@@ -1,16 +1,7 @@
 ---
-- name: Converge
-  hosts: all
-  gather_facts: false
-  vars:
-    ansible_ssh_private_key_file: ~/.ssh/id_rsa
-    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-  tasks:
-    - name: Get OS release info
-      ansible.builtin.command: cat /etc/os-release
-      register: os_release
-      changed_when: false
-
-    - name: Show OS release
-      ansible.builtin.debug:
-        var: os_release.stdout_lines
+# Delegate converge to the upstream Percona package-testing playbook.
+# Imported as-is so its relative `../tasks/*.yml` references resolve correctly.
+# Required:
+#   - Repo cloned to ${HOME}/package-testing (handled by setup.sh / setup-arm.sh).
+#   - Env var server_to_test (e.g. "ps-80") set by the Jenkinsfile / shell.
+- import_playbook: "{{ lookup('env', 'HOME') }}/package-testing/playbooks/pxb_80.yml"
