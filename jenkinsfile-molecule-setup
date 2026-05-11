@@ -48,7 +48,7 @@ pipeline {
             steps {
                 script {
                     def scenarios = [
-                        'debian11', 'debian12', 'debian12-arm64', 'debian13',
+                        'debian11', 'debian12', 'debian13',
                         'ubuntu22', 'ubuntu23', 'ubuntu24',
                         'rocky8',   'rocky9',   'rocky10'
                     ]

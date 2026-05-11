@@ -29,13 +29,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                deleteDir()
-                git url: params.REPO_URL, branch: params.BRANCH
-            }
-        }
-
         stage('Cleanup stale VMs') {
             steps {
                 sh '''
@@ -52,6 +45,13 @@ pipeline {
                     echo "→ Remaining qemu processes:"
                     pgrep -af qemu-system || true
                 '''
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                deleteDir()
+                git url: params.REPO_URL, branch: params.BRANCH
             }
         }
 
