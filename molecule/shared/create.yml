@@ -106,7 +106,7 @@
         aavmf_vars_src: >-
           {{
             '/opt/homebrew/share/qemu/edk2-arm-vars.fd'
-              if ansible_system == 'Darwin' and
+              if ansible_facts['system'] == 'Darwin' and
                  (lookup('ansible.builtin.fileglob', '/opt/homebrew/share/qemu/edk2-arm-vars.fd') | length > 0)
             else '/usr/share/AAVMF/AAVMF_VARS.fd'
               if (lookup('ansible.builtin.fileglob', '/usr/share/AAVMF/AAVMF_VARS.fd') | length > 0)
@@ -141,11 +141,11 @@
           2> /tmp/qemu-{{ item.item.name }}-stderr.log
       vars:
         accel_cpu: >-
-          {{ '-accel hvf -cpu host' if ansible_system == 'Darwin' else '-cpu max' }}
+          {{ '-accel hvf -cpu host' if ansible_facts['system'] == 'Darwin' else '-cpu max' }}
         aavmf_code: >-
           {{
             '/opt/homebrew/share/qemu/edk2-aarch64-code.fd'
-              if ansible_system == 'Darwin' and
+              if ansible_facts['system'] == 'Darwin' and
                  (lookup('ansible.builtin.fileglob', '/opt/homebrew/share/qemu/edk2-aarch64-code.fd') | length > 0)
             else '/usr/share/AAVMF/AAVMF_CODE.fd'
               if (lookup('ansible.builtin.fileglob', '/usr/share/AAVMF/AAVMF_CODE.fd') | length > 0)
