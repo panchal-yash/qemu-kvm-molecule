@@ -25,6 +25,7 @@ provisioner:
         ansible_python_interpreter: /usr/bin/python3.9
   playbooks:
     create: ../shared/create.yml
+    prepare: ../shared/prepare.yml
     destroy: ../shared/destroy.yml
     converge: ../shared/converge.yml
 

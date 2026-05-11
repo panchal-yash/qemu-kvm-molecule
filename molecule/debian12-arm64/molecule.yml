@@ -21,6 +21,7 @@ provisioner:
   log: true
   playbooks:
     create: ../shared/create.yml
+    prepare: ../shared/prepare.yml
     destroy: ../shared/destroy.yml
     converge: ../shared/converge.yml
 
