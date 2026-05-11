@@ -30,6 +30,30 @@
         state: absent
       loop: "{{ molecule_yml.platforms }}"
 
+    - name: Clean up qemu serial log
+      ansible.builtin.file:
+        path: "/tmp/qemu-{{ item.name }}-serial.log"
+        state: absent
+      loop: "{{ molecule_yml.platforms }}"
+
+    - name: Clean up qemu trace log
+      ansible.builtin.file:
+        path: "/tmp/qemu-{{ item.name }}-qemu.log"
+        state: absent
+      loop: "{{ molecule_yml.platforms }}"
+
+    - name: Clean up qemu stderr log
+      ansible.builtin.file:
+        path: "/tmp/qemu-{{ item.name }}-stderr.log"
+        state: absent
+      loop: "{{ molecule_yml.platforms }}"
+
+    - name: Clean up per-VM EFI NVRAM (arm64)
+      ansible.builtin.file:
+        path: "/tmp/qemu-{{ item.name }}-vars.fd"
+        state: absent
+      loop: "{{ molecule_yml.platforms }}"
+
     - name: Clear molecule instance config
       ansible.builtin.copy:
         content: ""

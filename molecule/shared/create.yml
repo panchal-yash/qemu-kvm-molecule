@@ -84,12 +84,32 @@
           -device virtio-net-pci,netdev=net0 \
           -enable-kvm \
           -cpu host \
+          -serial file:/tmp/qemu-{{ item.item.name }}-serial.log \
+          -D /tmp/qemu-{{ item.item.name }}-qemu.log \
           -daemonize \
           -display none \
-          -pidfile /tmp/qemu-{{ item.item.name }}.pid
+          -pidfile /tmp/qemu-{{ item.item.name }}.pid \
+          2> /tmp/qemu-{{ item.item.name }}-stderr.log
       when:
         - item.stdout == "not running"
         - (item.item.arch | default('amd64')) == 'amd64'
+      loop: "{{ vm_status.results }}"
+
+    - name: Stage writable EFI NVRAM per VM (arm64)
+      ansible.builtin.copy:
+        src: "{{ aavmf_vars_src }}"
+        dest: "/tmp/qemu-{{ item.item.name }}-vars.fd"
+        remote_src: true
+        force: false
+        mode: '0644'
+      vars:
+        aavmf_vars_src: >-
+          {{ '/usr/share/AAVMF/AAVMF_VARS.fd'
+             if (lookup('ansible.builtin.fileglob', '/usr/share/AAVMF/AAVMF_VARS.fd') | length > 0)
+             else '/usr/share/qemu-efi-aarch64/QEMU_VARS.fd' }}
+      when:
+        - item.stdout == "not running"
+        - (item.item.arch | default('amd64')) == 'arm64'
       loop: "{{ vm_status.results }}"
 
     - name: Start QEMU VM (arm64)
@@ -100,16 +120,25 @@
           -cpu max \
           -m {{ item.item.memory }} \
           -smp {{ item.item.cpus }} \
-          -bios /usr/share/qemu-efi-aarch64/QEMU_EFI.fd \
+          -drive if=pflash,format=raw,readonly=on,file={{ aavmf_code }} \
+          -drive if=pflash,format=raw,file=/tmp/qemu-{{ item.item.name }}-vars.fd \
           -drive file=/tmp/molecule-{{ item.item.name }}.raw,format=raw,if=none,id=disk0,cache=unsafe,aio=threads \
           -device virtio-blk-device,drive=disk0 \
           -drive file=/tmp/cloud-init-{{ item.item.name }}.iso,format=raw,if=none,id=cdrom0,readonly=on \
           -device virtio-blk-device,drive=cdrom0 \
           -netdev user,id=net0,hostfwd=tcp::{{ item.item.ssh_port }}-:22 \
           -device virtio-net-device,netdev=net0 \
+          -serial file:/tmp/qemu-{{ item.item.name }}-serial.log \
+          -D /tmp/qemu-{{ item.item.name }}-qemu.log \
           -daemonize \
           -display none \
-          -pidfile /tmp/qemu-{{ item.item.name }}.pid
+          -pidfile /tmp/qemu-{{ item.item.name }}.pid \
+          2> /tmp/qemu-{{ item.item.name }}-stderr.log
+      vars:
+        aavmf_code: >-
+          {{ '/usr/share/AAVMF/AAVMF_CODE.fd'
+             if (lookup('ansible.builtin.fileglob', '/usr/share/AAVMF/AAVMF_CODE.fd') | length > 0)
+             else '/usr/share/qemu-efi-aarch64/QEMU_EFI.fd' }}
       when:
         - item.stdout == "not running"
         - (item.item.arch | default('amd64')) == 'arm64'

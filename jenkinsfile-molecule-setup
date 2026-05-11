@@ -14,14 +14,16 @@ pipeline {
                 sh '''
                     set +e
                     echo "Killing any running qemu-system processes..."
-                    sudo pkill -9 -f qemu-system-x86_64 || true
-                    echo "Removing stale pidfiles, disks, and cloud-init artifacts..."
+                    sudo pkill -9 -f 'qemu-system-(x86_64|aarch64)' || true
+                    echo "Removing stale pidfiles, disks, cloud-init artifacts, and qemu logs..."
                     sudo rm -f /tmp/qemu-*.pid
+                    sudo rm -f /tmp/qemu-*-serial.log /tmp/qemu-*-qemu.log /tmp/qemu-*-stderr.log
+                    sudo rm -f /tmp/qemu-*-vars.fd
                     sudo rm -f /tmp/molecule-*.raw
                     sudo rm -f /tmp/cloud-init-*.iso
                     sudo rm -rf /tmp/cloud-init-*
                     echo "Remaining qemu processes (should be none):"
-                    pgrep -af qemu-system-x86_64 || true
+                    pgrep -af 'qemu-system-(x86_64|aarch64)' || true
                 '''
             }
         }

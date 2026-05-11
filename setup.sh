@@ -6,6 +6,14 @@ apt-get install -y qemu-system qemu-system-arm qemu-efi-aarch64 \
     python3 python3-venv python3-pip genisoimage \
     libvirt-clients libvirt-daemon-system wget
 
+# AAVMF (UEFI for arm64) provides both CODE and VARS firmware blobs
+# qemu-efi-aarch64 ships QEMU_EFI.fd + QEMU_VARS.fd; Ubuntu newer releases
+# install ovmf-style AAVMF symlinks. Make sure at least one path is present.
+if [ ! -f /usr/share/AAVMF/AAVMF_CODE.fd ] && [ ! -f /usr/share/qemu-efi-aarch64/QEMU_EFI.fd ]; then
+    echo "ERROR: no arm64 UEFI firmware found after install"
+    exit 1
+fi
+
 systemctl enable --now libvirtd
 
 VENV_DIR="${HOME}/.venv/molecule_qemu"
