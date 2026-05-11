@@ -75,7 +75,8 @@ pipeline {
                         'ubuntu22', 'ubuntu23', 'ubuntu24',
                         'rocky8',   'rocky9',   'rocky10'
                     ]
-                    // Run in chunks of 4 (host has ~25 GB free for VMs; 4 × 4 GB = 16 GB).
+                    // Run in chunks of 4. With 2 GB per VM: 4 × 2 = 8 GB total in flight,
+                    // matching the Mac arm64 footprint that completed cleanly.
                     int batchSize = 4
                     scenarios.collate(batchSize).eachWithIndex { batch, idx ->
                         stage("Batch ${idx + 1}: ${batch.join(', ')}") {

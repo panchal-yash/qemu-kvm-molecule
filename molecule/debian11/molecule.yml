@@ -7,7 +7,7 @@ driver:
 platforms:
   - name: debian11
     image: ${HOME}/qemu-images/debian-11-genericcloud-amd64.raw
-    memory: 4096
+    memory: 2048
     cpus: 2
     disk_size: 12G
     ssh_port: 2230
