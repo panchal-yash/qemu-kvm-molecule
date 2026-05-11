@@ -2,7 +2,8 @@
 set -e
 
 apt-get update -y
-apt-get install -y qemu-system python3 python3-venv python3-pip genisoimage \
+apt-get install -y qemu-system qemu-system-arm qemu-efi-aarch64 \
+    python3 python3-venv python3-pip genisoimage \
     libvirt-clients libvirt-daemon-system wget
 
 systemctl enable --now libvirtd
@@ -29,6 +30,7 @@ cd "${IMG_DIR}"
 IMAGES=(
   "https://cloud.debian.org/images/cloud/bullseye/latest/debian-11-genericcloud-amd64.qcow2 debian-11-genericcloud-amd64"
   "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2 debian-12-genericcloud-amd64"
+  "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-arm64.qcow2 debian-12-genericcloud-arm64"
   "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2 debian-13-genericcloud-amd64"
   "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img jammy-server-cloudimg-amd64"
   "https://cloud-images.ubuntu.com/releases/mantic/release/ubuntu-23.10-server-cloudimg-amd64.img mantic-server-cloudimg-amd64"

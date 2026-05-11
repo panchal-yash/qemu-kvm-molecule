@@ -46,7 +46,7 @@ pipeline {
             steps {
                 script {
                     def scenarios = [
-                        'debian11', 'debian12', 'debian13',
+                        'debian11', 'debian12', 'debian12-arm64', 'debian13',
                         'ubuntu22', 'ubuntu23', 'ubuntu24',
                         'rocky8',   'rocky9',   'rocky10'
                     ]
@@ -77,7 +77,7 @@ pipeline {
             sh '''
                 if [ -d "${VENV_DIR}" ]; then
                     . ${VENV_DIR}/bin/activate
-                    for s in debian11 debian12 debian13 ubuntu22 ubuntu23 ubuntu24 rocky8 rocky9 rocky10; do
+                    for s in debian11 debian12 debian12-arm64 debian13 ubuntu22 ubuntu23 ubuntu24 rocky8 rocky9 rocky10; do
                         molecule destroy -s ${s} || true
                     done
                 fi
