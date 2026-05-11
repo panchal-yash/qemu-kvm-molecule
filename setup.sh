@@ -1,8 +1,9 @@
 #!/bin/bash
-# Linux / Jenkins agent setup for the molecule + qemu harness.
-# Run as the Jenkins user — apt-install steps invoke sudo internally so the
-# venv and $HOME/qemu-images end up owned by the Jenkins user, not root.
-# For macOS Apple Silicon use ./setup-arm.sh instead.
+# Linux amd64 Jenkins agent setup for the molecule + qemu harness.
+# Downloads only the amd64 cloud images.
+#
+# For Linux aarch64: use ./setup-aarch64.sh
+# For macOS Apple Silicon: use ./setup-arm.sh
 
 set -e
 
@@ -13,13 +14,8 @@ IMG_DIR="${HOME}/qemu-images"
 
 echo "→ Installing OS packages (requires sudo)"
 sudo apt-get update -y
-sudo apt-get install -y qemu-system qemu-system-arm qemu-efi-aarch64 \
+sudo apt-get install -y qemu-system-x86 qemu-utils \
     python3 python3-venv python3-pip genisoimage wget git
-
-if [ ! -f /usr/share/AAVMF/AAVMF_CODE.fd ] && [ ! -f /usr/share/qemu-efi-aarch64/QEMU_EFI.fd ]; then
-    echo "ERROR: no arm64 UEFI firmware found after install"
-    exit 1
-fi
 
 echo "→ Python venv at ${VENV_DIR}"
 python3 -m venv "${VENV_DIR}"
@@ -40,22 +36,15 @@ cd "${IMG_DIR}"
 
 IMAGES=(
   "https://cloud.debian.org/images/cloud/bullseye/latest/debian-11-genericcloud-amd64.qcow2 debian-11-genericcloud-amd64"
-  "https://cloud.debian.org/images/cloud/bullseye/latest/debian-11-genericcloud-arm64.qcow2 debian-11-genericcloud-arm64"
   "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2 debian-12-genericcloud-amd64"
-  "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-arm64.qcow2 debian-12-genericcloud-arm64"
   "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2 debian-13-genericcloud-amd64"
-  "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-arm64.qcow2 debian-13-genericcloud-arm64"
   "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img jammy-server-cloudimg-amd64"
-  "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-arm64.img jammy-server-cloudimg-arm64"
   "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img noble-server-cloudimg-amd64"
-  "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img noble-server-cloudimg-arm64"
   "https://download.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud.latest.x86_64.qcow2 Rocky-9-GenericCloud.latest.x86_64"
-  "https://download.rockylinux.org/pub/rocky/9/images/aarch64/Rocky-9-GenericCloud.latest.aarch64.qcow2 Rocky-9-GenericCloud.latest.aarch64"
   "https://download.rockylinux.org/pub/rocky/10/images/x86_64/Rocky-10-GenericCloud-Base.latest.x86_64.qcow2 Rocky-10-GenericCloud.latest.x86_64"
-  "https://download.rockylinux.org/pub/rocky/10/images/aarch64/Rocky-10-GenericCloud-Base.latest.aarch64.qcow2 Rocky-10-GenericCloud.latest.aarch64"
 )
 
-echo "→ Downloading and converting cloud images"
+echo "→ Downloading and converting amd64 cloud images"
 for entry in "${IMAGES[@]}"; do
     # shellcheck disable=SC2086
     set -- $entry
@@ -71,7 +60,6 @@ for entry in "${IMAGES[@]}"; do
         fi
         echo "  converting ${src} -> ${raw}"
         qemu-img convert -f qcow2 -O raw "${src}" "${raw}"
-        # Conversion done — drop the .qcow2 source to save disk
         rm -f "${src}"
     else
         echo "  already present: ${raw}"
@@ -79,6 +67,6 @@ for entry in "${IMAGES[@]}"; do
 done
 
 echo
-echo "Setup complete."
+echo "Setup complete (amd64)."
 echo "  source ${VENV_DIR}/bin/activate"
-echo "  molecule test -s <scenario>"
+echo "  molecule test -s ubuntu24"
