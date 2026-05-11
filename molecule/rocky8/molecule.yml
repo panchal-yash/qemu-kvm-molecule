@@ -21,7 +21,7 @@ provisioner:
   inventory:
     host_vars:
       rocky8:
-        ansible_python_interpreter: /usr/bin/python3.9
+        ansible_python_interpreter: /usr/libexec/platform-python
   playbooks:
     create: ../shared/create.yml
     prepare: ../shared/prepare.yml

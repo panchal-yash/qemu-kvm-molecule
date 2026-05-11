@@ -1,29 +1,9 @@
 ---
-# Runs in molecule's "prepare" phase, between create and converge.
-# Uses the `raw` module (no Python required on target) so it works even when
-# the target's only Python is too old or missing. Idempotent — no-op on a
-# correctly-baked image.
-- name: Ensure python3.9 is present for ansible-core's requirements
+# Currently a no-op. Kept wired into every molecule.yml so future per-distro
+# preflight tasks have a place to live without changing scenario configs.
+# Uses gather_facts: false because some targets (Rocky 8) ship Python 3.6 only
+# and we don't want a setup-module failure during the empty prepare phase.
+- name: Prepare hosts (no-op)
   hosts: all
   gather_facts: false
-  become: true
-  tasks:
-    - name: Install python3.9 on Ubuntu 20.04 if missing
-      ansible.builtin.raw: |
-        set -e
-        if ! /usr/bin/python3.9 --version >/dev/null 2>&1; then
-            apt-get update -y
-            DEBIAN_FRONTEND=noninteractive apt-get install -y \
-                python3.9 python3.9-distutils python3.9-venv
-        fi
-      when: inventory_hostname in ['ubuntu20', 'ubuntu20-arm64']
-      changed_when: false
-
-    - name: Install python3.9 on Rocky 8 if missing
-      ansible.builtin.raw: |
-        set -e
-        if ! /usr/bin/python3.9 --version >/dev/null 2>&1; then
-            dnf install -y python39 python3-libselinux
-        fi
-      when: inventory_hostname in ['rocky8', 'rocky8-arm64']
-      changed_when: false
+  tasks: []

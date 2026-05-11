@@ -22,11 +22,26 @@ if [ ! -f /usr/share/AAVMF/AAVMF_CODE.fd ] && [ ! -f /usr/share/qemu-efi-aarch64
 fi
 
 echo "→ Python venv at ${VENV_DIR}"
+# Recreate if our pin floor changed (drops stale ansible-core 2.20+ from older runs)
+if [ -f "${VENV_DIR}/bin/ansible" ]; then
+    if "${VENV_DIR}/bin/python" -c \
+        "import importlib.metadata as m; v=m.version('ansible-core'); raise SystemExit(0 if v.startswith('2.16') or v.startswith('2.17') else 1)" \
+        2>/dev/null; then
+        echo "  existing venv already on supported ansible-core, keeping"
+    else
+        echo "  existing venv has unsupported ansible-core, recreating"
+        rm -rf "${VENV_DIR}"
+    fi
+fi
 python3 -m venv "${VENV_DIR}"
 # shellcheck disable=SC1091
 source "${VENV_DIR}/bin/activate"
 pip install --upgrade pip
-pip install "molecule>=25.6.0" "molecule-plugins>=23.7.0" "ansible-core>=2.20.0"
+pip install \
+    "ansible-core>=2.16,<2.18" \
+    "ansible-compat>=3,<4" \
+    "molecule>=24.0,<25" \
+    "molecule-plugins>=23.7.0,<24"
 ansible-galaxy collection install ansible.posix community.general
 
 if [ ! -f "${HOME}/.ssh/id_rsa" ]; then
