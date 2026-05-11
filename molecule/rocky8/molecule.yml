@@ -9,7 +9,7 @@ platforms:
     image: ${HOME}/qemu-images/Rocky-8-GenericCloud.latest.x86_64.raw
     memory: 2048
     cpus: 2
-    disk_size: 20G
+    disk_size: 12G
     ssh_port: 2236
     ssh_user: rocky
     ssh_key: ~/.ssh/id_rsa

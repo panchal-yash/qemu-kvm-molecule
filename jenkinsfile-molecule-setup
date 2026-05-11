@@ -4,8 +4,9 @@ pipeline {
     }
 
     environment {
-        REPO_URL   = 'https://github.com/panchal-yash/qemu-kvm-molecule.git'
-        VENV_DIR   = "${env.HOME}/.venv/molecule_qemu"
+        REPO_URL       = 'https://github.com/panchal-yash/qemu-kvm-molecule.git'
+        VENV_DIR       = "${env.HOME}/.venv/molecule_qemu"
+        server_to_test = "ps-80"
     }
 
     stages {
@@ -22,6 +23,11 @@ pipeline {
                     sudo rm -f /tmp/molecule-*.raw
                     sudo rm -f /tmp/cloud-init-*.iso
                     sudo rm -rf /tmp/cloud-init-*
+                    echo "Removing transient downloads and ansible caches..."
+                    sudo rm -f ${HOME}/qemu-images/*.qcow2 || true
+                    rm -rf ${HOME}/.ansible/tmp ${HOME}/.cache/molecule || true
+                    echo "Disk free after cleanup:"
+                    df -h /tmp ${HOME} || true
                     echo "Remaining qemu processes (should be none):"
                     pgrep -af 'qemu-system-(x86_64|aarch64)' || true
                 '''
@@ -40,6 +46,23 @@ pipeline {
                 sh '''
                     set -e
                     sudo bash setup.sh
+                '''
+            }
+        }
+
+        stage('Clone package-testing') {
+            steps {
+                sh '''
+                    set -e
+                    PT_DIR="${HOME}/package-testing"
+                    PT_URL="https://github.com/Percona-QA/package-testing.git"
+                    if [ -d "${PT_DIR}/.git" ]; then
+                        echo "Updating ${PT_DIR}"
+                        git -C "${PT_DIR}" pull --ff-only --quiet || true
+                    else
+                        echo "Cloning ${PT_URL} -> ${PT_DIR}"
+                        git clone --depth 1 "${PT_URL}" "${PT_DIR}"
+                    fi
                 '''
             }
         }
