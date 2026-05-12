@@ -1,0 +1,112 @@
+// Two-lane matrix. Each lane allocates ONE worker (a single `node()` call)
+// and runs all its scenarios in nested parallel on that same worker.
+// Two lanes themselves run in parallel.
+//
+// Data-driven: edit AMD64_SCENARIOS / ARM64_SCENARIOS to add or remove.
+
+@groovy.transform.Field
+final List<String> AMD64_SCENARIOS = [
+    'debian11', 'debian12', 'debian13',
+    'ubuntu22', 'ubuntu24',
+    'rocky9',   'rocky10',
+]
+
+@groovy.transform.Field
+final List<String> ARM64_SCENARIOS = [
+    'debian11-arm64', 'debian12-arm64', 'debian13-arm64',
+    'ubuntu22-arm64', 'ubuntu24-arm64',
+    'rocky9-arm64',   'rocky10-arm64',
+]
+
+pipeline {
+    agent none
+
+    options {
+        timestamps()
+        timeout(time: 120, unit: 'MINUTES')
+    }
+
+    environment {
+        REPO_URL                     = 'https://github.com/panchal-yash/qemu-kvm-molecule.git'
+        BRANCH                       = 'main'
+        server_to_test               = "ps-84"
+        ANSIBLE_DEPRECATION_WARNINGS = "False"
+    }
+
+    stages {
+        stage('Matrix') {
+            steps {
+                script {
+                    parallel(
+                        'amd64':   { runLane('metal-x64',     'setup.sh',          AMD64_SCENARIOS) },
+                        'aarch64': { runLane('metal-aarch64', 'setup-aarch64.sh',  ARM64_SCENARIOS) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// One lane: allocate the worker ONCE (single `node()`), prep it, then run
+// all the scenarios in nested parallel on the same worker.
+void runLane(String agentLabel, String setupScript, List<String> scenarios) {
+    node(agentLabel) {
+        stage("Prep ${agentLabel}") {
+            prepareWorker(setupScript)
+        }
+        stage("Tests ${agentLabel}") {
+            def branches = scenarios.collectEntries { name ->
+                [(name): {
+                    stage(name) {
+                        runScenario(name)
+                    }
+                }]
+            }
+            parallel branches
+        }
+    }
+}
+
+// One-shot prep on the lane's already-allocated worker.
+void prepareWorker(String setupScript) {
+    sh """
+        set +e
+        sudo pkill -9 -f 'qemu-system-(x86_64|aarch64)' || true
+        sudo rm -f /tmp/qemu-*.pid /tmp/qemu-*-vars.fd \\
+                   /tmp/qemu-*-serial.log /tmp/qemu-*-qemu.log /tmp/qemu-*-stderr.log \\
+                   /tmp/molecule-*.raw /tmp/cloud-init-*.iso
+        sudo rm -rf /tmp/cloud-init-*
+        rm -rf \$HOME/.ansible/tmp \$HOME/.cache/molecule || true
+    """
+    deleteDir()
+    git url: env.REPO_URL, branch: env.BRANCH
+    sh "set -e; bash ${setupScript}"
+    sh '''
+        set -e
+        PT_DIR="${HOME}/package-testing"
+        PT_URL="https://github.com/Percona-QA/package-testing.git"
+        if [ -d "${PT_DIR}/.git" ]; then
+            git -C "${PT_DIR}" pull --ff-only --quiet || true
+        else
+            git clone --depth 1 "${PT_URL}" "${PT_DIR}"
+        fi
+    '''
+}
+
+// Per-scenario body. Reuses the lane's already-allocated worker; no node{} here.
+void runScenario(String name) {
+    try {
+        sh """
+            set -e
+            . \$HOME/.venv/molecule_qemu/bin/activate
+            molecule create   -s ${name}
+            molecule converge -s ${name}
+        """
+    } finally {
+        sh """
+            set +e
+            . \$HOME/.venv/molecule_qemu/bin/activate
+            molecule destroy -s ${name} || true
+        """
+    }
+}

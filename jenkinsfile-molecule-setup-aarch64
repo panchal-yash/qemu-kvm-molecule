@@ -1,6 +1,16 @@
+// Linux aarch64 Jenkins agent — run the arm64 molecule scenarios via native KVM.
+// Agent expected to be Ubuntu/Debian on aarch64 hardware with /dev/kvm exposed.
+// For macOS Apple Silicon use jenkinsfile-local-arm64.
+// For Linux amd64    use jenkinsfile-molecule-setup.
+
 pipeline {
     agent {
-        label 'metal-x64'
+        label 'metal-aarch64'
+    }
+
+    options {
+        timestamps()
+        timeout(time: 90, unit: 'MINUTES')
     }
 
     environment {
@@ -15,9 +25,9 @@ pipeline {
             steps {
                 sh '''
                     set +e
-                    echo "Killing any running qemu-system processes..."
-                    sudo pkill -9 -f 'qemu-system-(x86_64|aarch64)' || true
-                    echo "Removing stale pidfiles, disks, cloud-init artifacts, and qemu logs..."
+                    echo "Killing any running qemu-system-aarch64 processes..."
+                    sudo pkill -9 -f 'qemu-system-aarch64' || true
+                    echo "Removing stale pidfiles, disks, cloud-init artifacts, NVRAM, and qemu logs..."
                     sudo rm -f /tmp/qemu-*.pid
                     sudo rm -f /tmp/qemu-*-serial.log /tmp/qemu-*-qemu.log /tmp/qemu-*-stderr.log
                     sudo rm -f /tmp/qemu-*-vars.fd
@@ -29,7 +39,7 @@ pipeline {
                     echo "Disk free after cleanup:"
                     df -h /tmp ${HOME} || true
                     echo "Remaining qemu processes (should be none):"
-                    pgrep -af 'qemu-system-(x86_64|aarch64)' || true
+                    pgrep -af qemu-system-aarch64 || true
                 '''
             }
         }
@@ -45,7 +55,7 @@ pipeline {
             steps {
                 sh '''
                     set -e
-                    bash setup.sh
+                    bash setup-aarch64.sh
                 '''
             }
         }
@@ -71,12 +81,12 @@ pipeline {
             steps {
                 script {
                     def scenarios = [
-                        'debian11', 'debian12', 'debian13',
-                        'ubuntu22', 'ubuntu24',
-                        'rocky9',   'rocky10'
+                        'debian11-arm64', 'debian12-arm64', 'debian13-arm64',
+                        'ubuntu22-arm64', 'ubuntu24-arm64',
+                        'rocky9-arm64',   'rocky10-arm64'
                     ]
-                    // Full parallel: 9 × 4 GB = 36 GB in flight on a
-                    // non-nested amd64 agent. Comfortable on a 64 GB+ host.
+                    // Full parallel: 9 × 4 GB = 36 GB in flight.
+                    // Comfortable on a 48 GB+ Linux aarch64 box with native KVM.
                     def branches = [:]
                     for (s in scenarios) {
                         def name = s
@@ -84,7 +94,7 @@ pipeline {
                             stage(name) {
                                 sh """
                                     set -e
-                                    . ${VENV_DIR}/bin/activate
+                                    . \${VENV_DIR}/bin/activate
                                     molecule create   -s ${name}
                                     molecule converge -s ${name}
                                     molecule destroy  -s ${name}
@@ -101,12 +111,22 @@ pipeline {
     post {
         always {
             sh '''
+                set +e
                 if [ -d "${VENV_DIR}" ]; then
                     . ${VENV_DIR}/bin/activate
-                    for s in debian11 debian12 debian12-arm64 debian13 ubuntu22 ubuntu24 rocky9 rocky10; do
-                        molecule destroy -s ${s} || true
+                    for s in debian11-arm64 debian12-arm64 debian13-arm64 \
+                             ubuntu22-arm64 ubuntu24-arm64 \
+                             rocky9-arm64 rocky10-arm64; do
+                        molecule destroy -s "$s" || true
                     done
                 fi
+                # Surface boot/serial logs for any failed scenario
+                for f in /tmp/qemu-*-serial.log /tmp/qemu-*-stderr.log; do
+                    if [ -s "$f" ]; then
+                        echo "=== $f (tail) ==="
+                        tail -100 "$f"
+                    fi
+                done
             '''
         }
     }
