@@ -19,16 +19,20 @@
         content: |
           Acquire::HTTP::Proxy "{{ cache_proxy }}";
           Acquire::HTTPS::Proxy "false";
+          Acquire::Retries "5";
+          Acquire::http::Timeout "120";
         owner: root
         group: root
         mode: '0644'
       when: ansible_os_family == "Debian"
 
-    - name: "[RHEL family] Set dnf/yum proxy"
-      ansible.builtin.lineinfile:
+    - name: "[RHEL family] Set dnf/yum proxy and retries"
+      ansible.builtin.blockinfile:
         path: /etc/dnf/dnf.conf
-        regexp: '^proxy='
-        line: "proxy={{ cache_proxy }}"
-        state: present
+        marker: "# {mark} qemu-kvm-molecule proxy config"
+        block: |
+          proxy={{ cache_proxy }}
+          retries=10
+          timeout=120
         create: false
       when: ansible_os_family == "RedHat"
