@@ -31,8 +31,19 @@ if ! grep -q '^Remap-percona:' /etc/apt-cacher-ng/acng.conf 2>/dev/null; then
     echo "→ Adding Remap-percona rule to apt-cacher-ng"
     echo 'Remap-percona: http://repo.percona.com ; https://repo.percona.com' \
         | sudo tee -a /etc/apt-cacher-ng/acng.conf > /dev/null
-    sudo systemctl reload apt-cacher-ng || sudo systemctl restart apt-cacher-ng
 fi
+
+# Allow HTTPS CONNECT pass-through. Default apt-cacher policy returns 403
+# for any HTTPS host not explicitly allowed, which breaks dnf on Rocky
+# (mirrors.rockylinux.org is HTTPS). Pass-through is uncached but at
+# least functional — Percona stays cached via the Remap rule above.
+if ! grep -q '^PassThroughPattern:' /etc/apt-cacher-ng/acng.conf 2>/dev/null; then
+    echo "→ Adding PassThroughPattern to apt-cacher-ng"
+    echo 'PassThroughPattern: .*' \
+        | sudo tee -a /etc/apt-cacher-ng/acng.conf > /dev/null
+fi
+
+sudo systemctl reload apt-cacher-ng || sudo systemctl restart apt-cacher-ng
 echo "→ apt-cacher-ng status: $(systemctl is-active apt-cacher-ng)"
 
 if [ ! -f /usr/share/AAVMF/AAVMF_CODE.fd ] && [ ! -f /usr/share/qemu-efi-aarch64/QEMU_EFI.fd ]; then
