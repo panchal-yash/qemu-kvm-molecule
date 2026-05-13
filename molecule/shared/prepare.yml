@@ -1,8 +1,34 @@
 ---
-# Reserved hook for per-distro preflight tasks (currently empty).
-# All supported distros ship Python >= 3.9 by default, so no setup is needed.
-# Keep this file wired into molecule.yml so future preflight work has a home.
-- name: Prepare hosts (no-op)
+# Point each guest at the host's apt-cacher-ng proxy BEFORE converge runs
+# any apt/dnf operations. Under qemu user-mode networking the host is
+# always reachable from inside the guest at 10.0.2.2 (SLIRP gateway).
+#
+# Combined with the `Remap-percona` rule in /etc/apt-cacher-ng/acng.conf
+# on the host, this gives request coalescing across parallel VMs even
+# when the upstream Percona repos are served over HTTPS.
+- name: Configure host package cache proxy on all guests
   hosts: all
-  gather_facts: false
-  tasks: []
+  gather_facts: true
+  become: true
+  vars:
+    cache_proxy: "http://10.0.2.2:3142"
+  tasks:
+    - name: "[Debian/Ubuntu] Write apt proxy config"
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/01proxy
+        content: |
+          Acquire::HTTP::Proxy "{{ cache_proxy }}";
+          Acquire::HTTPS::Proxy "false";
+        owner: root
+        group: root
+        mode: '0644'
+      when: ansible_os_family == "Debian"
+
+    - name: "[RHEL family] Set dnf/yum proxy"
+      ansible.builtin.lineinfile:
+        path: /etc/dnf/dnf.conf
+        regexp: '^proxy='
+        line: "proxy={{ cache_proxy }}"
+        state: present
+        create: false
+      when: ansible_os_family == "RedHat"

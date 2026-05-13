@@ -16,7 +16,24 @@ IMG_DIR="${HOME}/qemu-images"
 echo "→ Installing OS packages (requires sudo)"
 sudo apt-get update -y
 sudo apt-get install -y qemu-system-arm qemu-efi-aarch64 qemu-utils \
-    python3 python3-venv python3-pip genisoimage wget git
+    python3 python3-venv python3-pip genisoimage wget git \
+    apt-cacher-ng
+
+# apt-cacher-ng listens on 0.0.0.0:3142. Guests reach it at 10.0.2.2:3142
+# via SLIRP. Adds request-coalescing across parallel VMs hitting the same
+# package URLs (apt + dnf — content-agnostic HTTP cache).
+sudo systemctl enable --now apt-cacher-ng
+
+# Cache HTTPS Percona repos by remapping client HTTP requests to HTTPS upstream.
+# Without this, apt-cacher tunnels TLS without caching and the parallel-VM
+# request-coalescing win is lost for percona-xtrabackup downloads.
+if ! grep -q '^Remap-percona:' /etc/apt-cacher-ng/acng.conf 2>/dev/null; then
+    echo "→ Adding Remap-percona rule to apt-cacher-ng"
+    echo 'Remap-percona: http://repo.percona.com ; https://repo.percona.com' \
+        | sudo tee -a /etc/apt-cacher-ng/acng.conf > /dev/null
+    sudo systemctl reload apt-cacher-ng || sudo systemctl restart apt-cacher-ng
+fi
+echo "→ apt-cacher-ng status: $(systemctl is-active apt-cacher-ng)"
 
 if [ ! -f /usr/share/AAVMF/AAVMF_CODE.fd ] && [ ! -f /usr/share/qemu-efi-aarch64/QEMU_EFI.fd ]; then
     echo "ERROR: no arm64 UEFI firmware found after install"

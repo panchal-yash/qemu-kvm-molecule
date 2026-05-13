@@ -2,6 +2,6 @@
 # Delegate converge to the upstream Percona package-testing playbook.
 # Imported as-is so its relative `../tasks/*.yml` references resolve correctly.
 # Required:
-#   - Repo cloned to ${HOME}/package-testing (handled by setup.sh / setup-arm.sh).
+#   - Repo cloned to ${HOME}/package-testing (handled by setup.sh / setup-aarch64.sh).
 #   - Env var server_to_test (e.g. "ps-84") set by the Jenkinsfile / shell.
 - import_playbook: "{{ lookup('env', 'HOME') }}/package-testing/playbooks/pxb_84.yml"

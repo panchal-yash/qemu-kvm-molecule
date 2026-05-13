@@ -1,0 +1,55 @@
+---
+# Benchmark converge — 480 seconds of fixed, labelled workload per VM.
+# Four 120-second phases (CPU / Disk / Mem / Idle), each printing a
+# clearly-labelled START/END line with iso8601 timestamps so the per-VM
+# console output can be correlated with the host monitor samples.
+#
+# No network, no apt, no upstream dependencies — isolates host
+# concurrency cost from workload contention.
+- name: 480-second labelled benchmark workload
+  hosts: all
+  gather_facts: false
+  vars:
+    ansible_ssh_private_key_file: ~/.ssh/id_rsa
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  tasks:
+    - name: "[Phase 1/4] CPU burn (120 s, md5 of /dev/zero)"
+      ansible.builtin.shell: |
+        echo "[{{ inventory_hostname }}] Phase 1/4 CPU-burn START $(date -Iseconds)"
+        end=$(( $(date +%s) + 120 ))
+        while [ $(date +%s) -lt $end ]; do
+          dd if=/dev/zero bs=1M count=10 2>/dev/null | md5sum > /dev/null
+        done
+        echo "[{{ inventory_hostname }}] Phase 1/4 CPU-burn END   $(date -Iseconds)"
+      changed_when: false
+
+    - name: "[Phase 2/4] Disk I/O (120 s, 100MB writes + reads, O_DIRECT)"
+      ansible.builtin.shell: |
+        echo "[{{ inventory_hostname }}] Phase 2/4 Disk-IO  START $(date -Iseconds)"
+        end=$(( $(date +%s) + 120 ))
+        while [ $(date +%s) -lt $end ]; do
+          dd if=/dev/zero of=/tmp/bench bs=1M count=100 oflag=direct 2>/dev/null
+          dd if=/tmp/bench of=/dev/null bs=1M iflag=direct 2>/dev/null
+          rm -f /tmp/bench
+        done
+        echo "[{{ inventory_hostname }}] Phase 2/4 Disk-IO  END   $(date -Iseconds)"
+      changed_when: false
+
+    - name: "[Phase 3/4] Memory stress (120 s, allocate + touch 512 MB)"
+      ansible.builtin.shell: |
+        echo "[{{ inventory_hostname }}] Phase 3/4 Mem      START $(date -Iseconds)"
+        end=$(( $(date +%s) + 120 ))
+        while [ $(date +%s) -lt $end ]; do
+          dd if=/dev/urandom of=/dev/shm/memstress bs=1M count=512 2>/dev/null
+          cat /dev/shm/memstress > /dev/null
+          rm -f /dev/shm/memstress
+        done
+        echo "[{{ inventory_hostname }}] Phase 3/4 Mem      END   $(date -Iseconds)"
+      changed_when: false
+
+    - name: "[Phase 4/4] Idle sleep (120 s) — control"
+      ansible.builtin.shell: |
+        echo "[{{ inventory_hostname }}] Phase 4/4 Idle     START $(date -Iseconds)"
+        sleep 120
+        echo "[{{ inventory_hostname }}] Phase 4/4 Idle     END   $(date -Iseconds)"
+      changed_when: false
