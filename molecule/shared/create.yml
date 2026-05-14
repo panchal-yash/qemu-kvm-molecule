@@ -3,22 +3,16 @@
   hosts: localhost
   gather_facts: true
   tasks:
-    - name: Ensure tmpfs overlay directory exists
-      ansible.builtin.file:
-        path: /tmp/vm-overlays
-        state: directory
-        mode: '1777'
-
-    - name: Create per-VM raw disk in tmpfs
+    - name: Create disk from raw base image
       ansible.builtin.command: >
-        cp {{ item.image }} /tmp/vm-overlays/molecule-{{ item.name }}.raw
+        cp {{ item.image }} /tmp/molecule-{{ item.name }}.raw
       args:
-        creates: "/tmp/vm-overlays/molecule-{{ item.name }}.raw"
+        creates: "/tmp/molecule-{{ item.name }}.raw"
       loop: "{{ molecule_yml.platforms }}"
 
     - name: Resize raw disk
       ansible.builtin.command: >
-        qemu-img resize /tmp/vm-overlays/molecule-{{ item.name }}.raw {{ item.disk_size }}
+        qemu-img resize /tmp/molecule-{{ item.name }}.raw {{ item.disk_size }}
       loop: "{{ molecule_yml.platforms }}"
 
     - name: Create cloud-init directory
@@ -83,7 +77,7 @@
           -name {{ item.item.name }} \
           -m {{ item.item.memory }} \
           -smp {{ item.item.cpus }} \
-          -drive file=/tmp/vm-overlays/molecule-{{ item.item.name }}.raw,format=raw,if=none,id=disk0,cache=unsafe,aio=threads \
+          -drive file=/tmp/molecule-{{ item.item.name }}.raw,format=raw,if=none,id=disk0,cache=unsafe,aio=threads \
           -device virtio-blk-pci,drive=disk0 \
           -cdrom /tmp/cloud-init-{{ item.item.name }}.iso \
           -netdev user,id=net0,hostfwd=tcp::{{ item.item.ssh_port }}-:22 \
@@ -133,7 +127,7 @@
           -smp {{ item.item.cpus }} \
           -drive if=pflash,format=raw,readonly=on,file={{ aavmf_code }} \
           -drive if=pflash,format=raw,file=/tmp/qemu-{{ item.item.name }}-vars.fd \
-          -drive file=/tmp/vm-overlays/molecule-{{ item.item.name }}.raw,format=raw,if=none,id=disk0,cache=unsafe,aio=threads \
+          -drive file=/tmp/molecule-{{ item.item.name }}.raw,format=raw,if=none,id=disk0,cache=unsafe,aio=threads \
           -device virtio-blk-device,drive=disk0,bootindex=0 \
           -drive file=/tmp/cloud-init-{{ item.item.name }}.iso,format=raw,if=none,id=cdrom0,readonly=on \
           -device virtio-blk-device,drive=cdrom0,bootindex=1 \

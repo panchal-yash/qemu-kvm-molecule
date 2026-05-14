@@ -23,13 +23,13 @@
         echo "[{{ inventory_hostname }}] Phase 1/4 CPU-burn END   $(date -Iseconds)"
       changed_when: false
 
-    - name: "[Phase 2/4] Disk I/O (120 s, 100MB writes + reads + fsync)"
+    - name: "[Phase 2/4] Disk I/O (120 s, 100MB writes + reads, O_DIRECT)"
       ansible.builtin.shell: |
         echo "[{{ inventory_hostname }}] Phase 2/4 Disk-IO  START $(date -Iseconds)"
         end=$(( $(date +%s) + 120 ))
         while [ $(date +%s) -lt $end ]; do
-          dd if=/dev/zero of=/tmp/bench bs=1M count=100 conv=fsync 2>/dev/null
-          dd if=/tmp/bench of=/dev/null bs=1M 2>/dev/null
+          dd if=/dev/zero of=/tmp/bench bs=1M count=100 oflag=direct 2>/dev/null
+          dd if=/tmp/bench of=/dev/null bs=1M iflag=direct 2>/dev/null
           rm -f /tmp/bench
         done
         echo "[{{ inventory_hostname }}] Phase 2/4 Disk-IO  END   $(date -Iseconds)"

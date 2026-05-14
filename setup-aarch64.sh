@@ -46,19 +46,6 @@ fi
 sudo systemctl reload apt-cacher-ng || sudo systemctl restart apt-cacher-ng
 echo "→ apt-cacher-ng status: $(systemctl is-active apt-cacher-ng)"
 
-# tmpfs for per-VM raw disks. Same raw-copy flow as before, but the
-# copies live in RAM. Host disk is no longer hit during the run except
-# for the initial read of the base image (page cache warm thereafter).
-TMPFS_DIR=/tmp/vm-overlays
-TMPFS_SIZE=64G
-sudo mkdir -p "${TMPFS_DIR}"
-if ! mountpoint -q "${TMPFS_DIR}"; then
-    echo "→ Mounting tmpfs at ${TMPFS_DIR} (${TMPFS_SIZE})"
-    sudo mount -t tmpfs -o size=${TMPFS_SIZE},mode=1777 tmpfs "${TMPFS_DIR}"
-else
-    echo "→ tmpfs already mounted at ${TMPFS_DIR}"
-fi
-
 if [ ! -f /usr/share/AAVMF/AAVMF_CODE.fd ] && [ ! -f /usr/share/qemu-efi-aarch64/QEMU_EFI.fd ]; then
     echo "ERROR: no arm64 UEFI firmware found after install"
     exit 1
