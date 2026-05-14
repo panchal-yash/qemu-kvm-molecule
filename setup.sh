@@ -42,6 +42,9 @@ IMAGES=(
   "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img noble-server-cloudimg-amd64"
   "https://download.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud.latest.x86_64.qcow2 Rocky-9-GenericCloud.latest.x86_64"
   "https://download.rockylinux.org/pub/rocky/10/images/x86_64/Rocky-10-GenericCloud-Base.latest.x86_64.qcow2 Rocky-10-GenericCloud.latest.x86_64"
+  "https://yum.oracle.com/templates/OracleLinux/OL9/u7/x86_64/OL9U7_x86_64-kvm-b269.qcow2 oraclelinux-9-amd64"
+  "https://yum.oracle.com/templates/OracleLinux/OL10/u1/x86_64/OL10U1_x86_64-kvm-b270.qcow2 oraclelinux-10-amd64"
+  "https://cdn.amazonlinux.com/al2023/os-images/2023.11.20260511.1/kvm/al2023-kvm-2023.11.20260511.1-kernel-6.1-x86_64.xfs.gpt.qcow2 al2023-amd64"
 )
 
 echo "→ Downloading and converting amd64 cloud images"
