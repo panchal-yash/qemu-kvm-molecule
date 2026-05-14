@@ -46,10 +46,9 @@ fi
 sudo systemctl reload apt-cacher-ng || sudo systemctl restart apt-cacher-ng
 echo "→ apt-cacher-ng status: $(systemctl is-active apt-cacher-ng)"
 
-# tmpfs for per-VM disk overlays. Combined with qcow2-with-backing-file
-# in create.yml, this means: read-only base image is shared across all
-# VMs (one disk read serves 21 page-cache hits), and per-VM scratch
-# writes go to RAM. Host disk is no longer the cliff for parallel runs.
+# tmpfs for per-VM raw disks. Same raw-copy flow as before, but the
+# copies live in RAM. Host disk is no longer hit during the run except
+# for the initial read of the base image (page cache warm thereafter).
 TMPFS_DIR=/tmp/vm-overlays
 TMPFS_SIZE=64G
 sudo mkdir -p "${TMPFS_DIR}"

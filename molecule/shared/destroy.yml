@@ -12,9 +12,9 @@
       ignore_errors: true
       loop: "{{ molecule_yml.platforms }}"
 
-    - name: Clean up VM disk overlay
+    - name: Clean up VM disk
       ansible.builtin.file:
-        path: "/tmp/vm-overlays/molecule-{{ item.name }}.qcow2"
+        path: "/tmp/vm-overlays/molecule-{{ item.name }}.raw"
         state: absent
       loop: "{{ molecule_yml.platforms }}"
 

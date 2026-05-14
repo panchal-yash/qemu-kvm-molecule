@@ -9,14 +9,16 @@
         state: directory
         mode: '1777'
 
-    - name: Create per-VM qcow2 overlay on shared raw backing file
+    - name: Create per-VM raw disk in tmpfs
       ansible.builtin.command: >
-        qemu-img create -f qcow2 -F raw
-        -b {{ item.image }}
-        /tmp/vm-overlays/molecule-{{ item.name }}.qcow2
-        {{ item.disk_size }}
+        cp {{ item.image }} /tmp/vm-overlays/molecule-{{ item.name }}.raw
       args:
-        creates: "/tmp/vm-overlays/molecule-{{ item.name }}.qcow2"
+        creates: "/tmp/vm-overlays/molecule-{{ item.name }}.raw"
+      loop: "{{ molecule_yml.platforms }}"
+
+    - name: Resize raw disk
+      ansible.builtin.command: >
+        qemu-img resize /tmp/vm-overlays/molecule-{{ item.name }}.raw {{ item.disk_size }}
       loop: "{{ molecule_yml.platforms }}"
 
     - name: Create cloud-init directory
@@ -81,7 +83,7 @@
           -name {{ item.item.name }} \
           -m {{ item.item.memory }} \
           -smp {{ item.item.cpus }} \
-          -drive file=/tmp/vm-overlays/molecule-{{ item.item.name }}.qcow2,format=qcow2,if=none,id=disk0,cache=unsafe,aio=io_uring \
+          -drive file=/tmp/vm-overlays/molecule-{{ item.item.name }}.raw,format=raw,if=none,id=disk0,cache=unsafe,aio=threads \
           -device virtio-blk-pci,drive=disk0 \
           -cdrom /tmp/cloud-init-{{ item.item.name }}.iso \
           -netdev user,id=net0,hostfwd=tcp::{{ item.item.ssh_port }}-:22 \
@@ -131,7 +133,7 @@
           -smp {{ item.item.cpus }} \
           -drive if=pflash,format=raw,readonly=on,file={{ aavmf_code }} \
           -drive if=pflash,format=raw,file=/tmp/qemu-{{ item.item.name }}-vars.fd \
-          -drive file=/tmp/vm-overlays/molecule-{{ item.item.name }}.qcow2,format=qcow2,if=none,id=disk0,cache=unsafe,aio=io_uring \
+          -drive file=/tmp/vm-overlays/molecule-{{ item.item.name }}.raw,format=raw,if=none,id=disk0,cache=unsafe,aio=threads \
           -device virtio-blk-device,drive=disk0,bootindex=0 \
           -drive file=/tmp/cloud-init-{{ item.item.name }}.iso,format=raw,if=none,id=cdrom0,readonly=on \
           -device virtio-blk-device,drive=cdrom0,bootindex=1 \
