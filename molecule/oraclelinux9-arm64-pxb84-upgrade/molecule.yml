@@ -10,7 +10,7 @@ platforms:
     image: ${HOME}/qemu-images/oraclelinux-9-arm64.raw
     memory: 4096
     cpus: 2
-    disk_size: 12G
+    disk_size: 24G
     ssh_port: 2274
     ssh_user: cloud-user
     ssh_key: ~/.ssh/id_rsa
