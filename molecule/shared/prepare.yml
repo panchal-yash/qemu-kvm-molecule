@@ -36,3 +36,19 @@
           timeout=120
         create: false
       when: ansible_os_family == "RedHat"
+
+    # Upstream pxb playbooks invoke `iptables` to block a PMM check host but
+    # the install task is conditionally skipped for some distros. Make sure
+    # it's present on every guest so the converge doesn't fail later.
+    - name: "[Debian/Ubuntu] Ensure iptables is installed"
+      ansible.builtin.apt:
+        name: iptables
+        state: present
+        update_cache: true
+      when: ansible_os_family == "Debian"
+
+    - name: "[RHEL family] Ensure iptables is installed"
+      ansible.builtin.dnf:
+        name: iptables
+        state: present
+      when: ansible_os_family == "RedHat"
