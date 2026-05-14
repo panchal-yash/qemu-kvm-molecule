@@ -47,8 +47,11 @@
         update_cache: true
       when: ansible_os_family == "Debian"
 
-    - name: "[RHEL family] Ensure iptables is installed"
+    - name: "[RHEL family] Ensure iptables, which, openssl are installed"
       ansible.builtin.dnf:
-        name: iptables
+        name:
+          - iptables
+          - which
+          - openssl
         state: present
       when: ansible_os_family == "RedHat"

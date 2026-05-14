@@ -7,7 +7,7 @@ driver:
 platforms:
   - name: oraclelinux9
     image: ${HOME}/qemu-images/oraclelinux-9-amd64.raw
-    memory: 4096
+    memory: 2048
     cpus: 2
     disk_size: 32G
     ssh_port: 2270
