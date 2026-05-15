@@ -77,28 +77,81 @@ pipeline {
             }
         }
 
-        stage('Molecule (parallel)') {
+        stage('Start host monitor') {
+            // 5-second host health sampler. Log archived in post.always so we
+            // can correlate host metrics with the bench Phase START/END
+            // markers in the console.
+            steps {
+                sh '''
+                    set -e
+                    rm -f /tmp/build-monitor.log /tmp/build-monitor.pid
+                    NIC=$(ip -o link show | awk -F': ' '$2 !~ /^(lo|docker|br-|veth)/ {print $2; exit}')
+                    echo "Monitoring NIC: ${NIC}" > /tmp/build-monitor.log
+                    (
+                        prev_rx=0; prev_tx=0
+                        while true; do
+                            ts=$(date '+%H:%M:%S')
+                            load=$(awk '{print $1"/"$2"/"$3}' /proc/loadavg)
+                            mem_avail_mb=$(awk '/^MemAvailable/{print int($2/1024)}' /proc/meminfo)
+                            swap_used_mb=$(awk '/^SwapTotal/{t=$2} /^SwapFree/{f=$2} END{print int((t-f)/1024)}' /proc/meminfo)
+                            qemus=$(pgrep -c qemu-system-aarch64 || echo 0)
+                            if [ -d /sys/class/net/${NIC} ]; then
+                                cur_rx=$(cat /sys/class/net/${NIC}/statistics/rx_bytes)
+                                cur_tx=$(cat /sys/class/net/${NIC}/statistics/tx_bytes)
+                                rx_mbps=$(( (cur_rx - prev_rx) * 8 / 1000000 / 5 ))
+                                tx_mbps=$(( (cur_tx - prev_tx) * 8 / 1000000 / 5 ))
+                                prev_rx=$cur_rx; prev_tx=$cur_tx
+                            else
+                                rx_mbps=0; tx_mbps=0
+                            fi
+                            disk_util=$(iostat -x 1 2 2>/dev/null | awk 'NR>2 && /^[a-z]/ {if ($NF>m) m=$NF} END {print m+0}' || echo 0)
+                            printf '%s  load=%-14s memMB=%-6s swapMB=%-5s qemus=%-2s netRx=%4sMbps netTx=%4sMbps diskUtil=%s\\n' \
+                                "${ts}" "${load}" "${mem_avail_mb}" "${swap_used_mb}" "${qemus}" "${rx_mbps}" "${tx_mbps}" "${disk_util}" \
+                                >> /tmp/build-monitor.log
+                            sleep 5
+                        done
+                    ) &
+                    echo $! > /tmp/build-monitor.pid
+                '''
+            }
+        }
+
+        stage('Molecule (30 parallel QEMU VM Package Tests)') {
             steps {
                 script {
-                    def scenarios = [
+                    // 10 distros × 3 test types = 30 VMs in parallel.
+                    // Pointed at converge-bench.yml (480s labelled workload)
+                    // for host-concurrency measurement.
+                    def distros = [
                         'debian11-arm64', 'debian12-arm64', 'debian13-arm64',
                         'ubuntu22-arm64', 'ubuntu24-arm64',
-                        'rocky9-arm64',   'rocky10-arm64'
+                        'rocky9-arm64',   'rocky10-arm64',
+                        'oraclelinux9-arm64', 'oraclelinux10-arm64', 'al2023-arm64'
                     ]
-                    // Full parallel: 9 × 4 GB = 36 GB in flight.
-                    // Comfortable on a 48 GB+ Linux aarch64 box with native KVM.
+                    def testTypes = ['pxb84', 'pxb84-upgrade', 'pxb84-1']
                     def branches = [:]
-                    for (s in scenarios) {
-                        def name = s
-                        branches[name] = {
-                            stage(name) {
-                                sh """
-                                    set -e
-                                    . \${VENV_DIR}/bin/activate
-                                    molecule create   -s ${name}
-                                    molecule converge -s ${name}
-                                    molecule destroy  -s ${name}
-                                """
+                    for (d in distros) {
+                        for (t in testTypes) {
+                            def scenario = "${d}-${t}"
+                            branches[scenario] = {
+                                stage(scenario) {
+                                    try {
+                                        sh """
+                                            set -e
+                                            . \${VENV_DIR}/bin/activate
+                                            molecule create   -s ${scenario}
+                                            molecule converge -s ${scenario}
+                                        """
+                                    } finally {
+                                        // Always destroy — frees the qemu
+                                        // process even when converge failed.
+                                        sh """
+                                            set +e
+                                            . \${VENV_DIR}/bin/activate
+                                            molecule destroy -s ${scenario} || true
+                                        """
+                                    }
+                                }
                             }
                         }
                     }
@@ -114,19 +167,15 @@ pipeline {
                 set +e
                 if [ -d "${VENV_DIR}" ]; then
                     . ${VENV_DIR}/bin/activate
-                    for s in debian11-arm64 debian12-arm64 debian13-arm64 \
+                    for d in debian11-arm64 debian12-arm64 debian13-arm64 \
                              ubuntu22-arm64 ubuntu24-arm64 \
-                             rocky9-arm64 rocky10-arm64; do
-                        molecule destroy -s "$s" || true
+                             rocky9-arm64 rocky10-arm64 \
+                             oraclelinux9-arm64 oraclelinux10-arm64 al2023-arm64; do
+                        for t in pxb84 pxb84-upgrade pxb84-1; do
+                            molecule destroy -s "${d}-${t}" || true
+                        done
                     done
                 fi
-                # Surface boot/serial logs for any failed scenario
-                for f in /tmp/qemu-*-serial.log /tmp/qemu-*-stderr.log; do
-                    if [ -s "$f" ]; then
-                        echo "=== $f (tail) ==="
-                        tail -100 "$f"
-                    fi
-                done
             '''
         }
     }

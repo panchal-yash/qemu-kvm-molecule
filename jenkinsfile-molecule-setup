@@ -73,7 +73,8 @@ pipeline {
                     def scenarios = [
                         'debian11', 'debian12', 'debian13',
                         'ubuntu22', 'ubuntu24',
-                        'rocky9',   'rocky10'
+                        'rocky9',   'rocky10',
+                        'oraclelinux9', 'oraclelinux10', 'al2023'
                     ]
                     // Full parallel: 9 × 4 GB = 36 GB in flight on a
                     // non-nested amd64 agent. Comfortable on a 64 GB+ host.
@@ -82,13 +83,20 @@ pipeline {
                         def name = s
                         branches[name] = {
                             stage(name) {
-                                sh """
-                                    set -e
-                                    . ${VENV_DIR}/bin/activate
-                                    molecule create   -s ${name}
-                                    molecule converge -s ${name}
-                                    molecule destroy  -s ${name}
-                                """
+                                try {
+                                    sh """
+                                        set -e
+                                        . ${VENV_DIR}/bin/activate
+                                        molecule create   -s ${name}
+                                        molecule converge -s ${name}
+                                    """
+                                } finally {
+                                    sh """
+                                        set +e
+                                        . ${VENV_DIR}/bin/activate
+                                        molecule destroy -s ${name} || true
+                                    """
+                                }
                             }
                         }
                     }
@@ -103,7 +111,7 @@ pipeline {
             sh '''
                 if [ -d "${VENV_DIR}" ]; then
                     . ${VENV_DIR}/bin/activate
-                    for s in debian11 debian12 debian12-arm64 debian13 ubuntu22 ubuntu24 rocky9 rocky10; do
+                    for s in debian11 debian12 debian13 ubuntu22 ubuntu24 rocky9 rocky10 oraclelinux9 oraclelinux10 al2023; do
                         molecule destroy -s ${s} || true
                     done
                 fi

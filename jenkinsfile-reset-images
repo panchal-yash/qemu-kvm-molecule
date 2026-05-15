@@ -1,0 +1,70 @@
+// One-shot Jenkinsfile to delete cached cloud-image raws from ~/qemu-images
+// on a chosen agent. Use this when you suspect a baked image is in a bad
+// state (e.g. a previous bake left /usr/bin/python3 swapped to a broken
+// alternatives target). Re-running jenkinsfile-molecule-setup after this
+// will trigger setup.sh to re-download the vanilla upstream image.
+//
+// IMAGES_TO_DELETE is empty by default — set it to a comma-separated list
+// of raw filenames to delete from ~/qemu-images.
+
+pipeline {
+    agent { label params.AGENT_LABEL }
+
+    options {
+        timestamps()
+        timeout(time: 5, unit: 'MINUTES')
+    }
+
+    parameters {
+        choice(name: 'AGENT_LABEL',
+               choices: ['metal-x64', 'metal-aarch64'],
+               description: 'Which agent to clean.')
+        string(name: 'IMAGES_TO_DELETE',
+               defaultValue: '',
+               description: 'Comma-separated raw filenames (under ~/qemu-images) to delete. Empty = no-op.')
+    }
+
+    stages {
+        stage('Delete cached raws') {
+            steps {
+                sh '''
+                    set -e
+                    IMG_DIR="${HOME}/qemu-images"
+                    [ -d "${IMG_DIR}" ] || { echo "${IMG_DIR} does not exist; nothing to do."; exit 0; }
+
+                    echo "Before:"
+                    ls -lh "${IMG_DIR}" | head -40
+
+                    cd "${IMG_DIR}"
+                    # POSIX-safe comma-splitting (Jenkins sh = dash on Ubuntu, no <<<)
+                    echo "${IMAGES_TO_DELETE}" | tr ',' '\n' | while IFS= read -r img; do
+                        img="$(echo "${img}" | tr -d ' ')"
+                        [ -n "${img}" ] || continue
+                        if [ -f "${img}" ]; then
+                            echo "Removing ${img}"
+                            rm -f "${img}"
+                        else
+                            echo "Not present: ${img}"
+                        fi
+                        # Also clean any leftover .qcow2 source so the next setup.sh
+                        # run starts from a fresh upstream download.
+                        qcow2="${img%.raw}.qcow2"
+                        if [ -f "${qcow2}" ]; then
+                            echo "Removing ${qcow2}"
+                            rm -f "${qcow2}"
+                        fi
+                    done
+
+                    echo "After:"
+                    ls -lh "${IMG_DIR}" | head -40
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Re-run jenkinsfile-molecule-setup (or -aarch64) — setup.sh will re-download fresh vanilla images for the deleted entries."
+        }
+    }
+}
