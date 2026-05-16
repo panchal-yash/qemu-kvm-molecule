@@ -19,6 +19,8 @@ pipeline {
         server_to_test               = "ps-84"
         ANSIBLE_DEPRECATION_WARNINGS = "False"
         MOLECULE_GLOB                = "molecule/arm/*/molecule.yml"
+        check_warnings               = "no"
+        pro_test                     = "no"
     }
 
     stages {
@@ -67,12 +69,15 @@ pipeline {
                     set -e
                     PT_DIR="${HOME}/package-testing"
                     PT_URL="https://github.com/Percona-QA/package-testing.git"
+                    PT_BRANCH="qemu-tests"
                     if [ -d "${PT_DIR}/.git" ]; then
-                        echo "Updating ${PT_DIR}"
-                        git -C "${PT_DIR}" pull --ff-only --quiet || true
+                        echo "Refreshing ${PT_DIR} on ${PT_BRANCH}"
+                        git -C "${PT_DIR}" fetch --quiet origin "${PT_BRANCH}"
+                        git -C "${PT_DIR}" checkout --quiet "${PT_BRANCH}"
+                        git -C "${PT_DIR}" reset --hard --quiet "origin/${PT_BRANCH}"
                     else
-                        echo "Cloning ${PT_URL} -> ${PT_DIR}"
-                        git clone --depth 1 "${PT_URL}" "${PT_DIR}"
+                        echo "Cloning ${PT_URL} (${PT_BRANCH}) -> ${PT_DIR}"
+                        git clone --depth 1 --branch "${PT_BRANCH}" "${PT_URL}" "${PT_DIR}"
                     fi
                 '''
             }
@@ -82,36 +87,45 @@ pipeline {
             steps {
                 script {
                     // 10 distros × 3 test types = 30 VMs in parallel.
-                    // Pointed at converge-bench.yml (480s labelled workload)
-                    // for host-concurrency measurement.
+                    // Test types: pxb84 (install), pxb84-upgrade, pxb84-upstream.
                     def distros = [
                         'debian11-arm64', 'debian12-arm64', 'debian13-arm64',
                         'ubuntu22-arm64', 'ubuntu24-arm64',
                         'rocky9-arm64',   'rocky10-arm64',
                         'oraclelinux9-arm64', 'oraclelinux10-arm64', 'al2023-arm64'
                     ]
-                    def testTypes = ['pxb84', 'pxb84-upgrade', 'pxb84-1']
+                    // Per-test-type env: install tests 'testing'.
+                    // Upgrade starts from 'main' and upgrades to 'testing'.
+                    // Upstream tests PXB 8.4 against MySQL 8.4 (overrides global server_to_test).
+                    def testTypeEnv = [
+                        'pxb84'         : ['install_repo=testing'],
+                        'pxb84-upgrade' : ['install_repo=main', 'upgrade_repo=testing'],
+                        'pxb84-upstream': ['server_to_test=ms-84', 'install_repo=testing'],
+                    ]
                     def branches = [:]
                     for (d in distros) {
-                        for (t in testTypes) {
+                        for (t in testTypeEnv.keySet()) {
                             def scenario = "${d}-${t}"
+                            def envForType = testTypeEnv[t]
                             branches[scenario] = {
                                 stage(scenario) {
-                                    try {
-                                        sh """
-                                            set -e
-                                            . \${VENV_DIR}/bin/activate
-                                            molecule create   -s ${scenario}
-                                            molecule converge -s ${scenario}
-                                        """
-                                    } finally {
-                                        // Always destroy — frees the qemu
-                                        // process even when converge failed.
-                                        sh """
-                                            set +e
-                                            . \${VENV_DIR}/bin/activate
-                                            molecule destroy -s ${scenario} || true
-                                        """
+                                    withEnv(envForType) {
+                                        try {
+                                            sh """
+                                                set -e
+                                                . \${VENV_DIR}/bin/activate
+                                                molecule create   -s ${scenario}
+                                                molecule converge -s ${scenario}
+                                            """
+                                        } finally {
+                                            // Always destroy — frees the qemu
+                                            // process even when converge failed.
+                                            sh """
+                                                set +e
+                                                . \${VENV_DIR}/bin/activate
+                                                molecule destroy -s ${scenario} || true
+                                            """
+                                        }
                                     }
                                 }
                             }
@@ -133,7 +147,7 @@ pipeline {
                              ubuntu22-arm64 ubuntu24-arm64 \
                              rocky9-arm64 rocky10-arm64 \
                              oraclelinux9-arm64 oraclelinux10-arm64 al2023-arm64; do
-                        for t in pxb84 pxb84-upgrade pxb84-1; do
+                        for t in pxb84 pxb84-upgrade pxb84-upstream; do
                             molecule destroy -s "${d}-${t}" || true
                         done
                     done

@@ -5,7 +5,7 @@ driver:
     managed: true
 
 platforms:
-  - name: rocky9-arm64-pxb84-tarball
+  - name: rocky9-arm64-pxb84-upstream
     arch: arm64
     image: ${HOME}/qemu-images/Rocky-9-GenericCloud.latest.aarch64.raw
     memory: 2048
@@ -23,7 +23,7 @@ provisioner:
     create: ../../shared/create.yml
     prepare: ../../shared/prepare.yml
     destroy: ../../shared/destroy.yml
-    converge: ../../shared/converge-pxb84-tarball.yml
+    converge: ../../shared/converge-pxb84-upstream.yml
 
 verifier:
   name: ansible
