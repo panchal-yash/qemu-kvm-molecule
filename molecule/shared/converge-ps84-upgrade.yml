@@ -1,0 +1,2 @@
+---
+- import_playbook: "{{ lookup('env', 'HOME') }}/package-testing/playbooks/ps_84_upgrade.yml"
