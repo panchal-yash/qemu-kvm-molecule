@@ -1,0 +1,156 @@
+// Linux amd64 Jenkins agent — run the amd64 molecule scenarios via native KVM.
+// Agent expected to be Ubuntu/Debian on amd64 hardware with /dev/kvm exposed.
+// For Linux aarch64 use jenkinsfile-molecule-setup-aarch64.
+
+pipeline {
+    agent {
+        label 'metal-amd64'
+    }
+
+    options {
+        timestamps()
+        timeout(time: 90, unit: 'MINUTES')
+    }
+
+    environment {
+        REPO_URL                     = 'https://github.com/panchal-yash/qemu-kvm-molecule.git'
+        VENV_DIR                     = "${env.HOME}/.venv/molecule_qemu"
+        server_to_test               = "ps-84"
+        ANSIBLE_DEPRECATION_WARNINGS = "False"
+        MOLECULE_GLOB                = "molecule/amd/*/molecule.yml"
+        check_warnings               = "no"
+        pro_test                     = "no"
+    }
+
+    stages {
+        stage('Cleanup stale VMs') {
+            steps {
+                sh '''
+                    set +e
+                    echo "Killing any running qemu-system-x86_64 processes..."
+                    sudo pkill -9 -f 'qemu-system-x86_64' || true
+                    echo "Removing stale pidfiles, disks, cloud-init artifacts, and qemu logs..."
+                    sudo rm -f /tmp/qemu-*.pid
+                    sudo rm -f /tmp/qemu-*-serial.log /tmp/qemu-*-qemu.log /tmp/qemu-*-stderr.log
+                    sudo rm -f /tmp/molecule-*.raw
+                    sudo rm -f /tmp/cloud-init-*.iso
+                    sudo rm -rf /tmp/cloud-init-*
+                    echo "Removing ansible caches (keeping ${HOME}/qemu-images intact)..."
+                    rm -rf ${HOME}/.ansible/tmp ${HOME}/.cache/molecule || true
+                    echo "Disk free after cleanup:"
+                    df -h /tmp ${HOME} || true
+                    echo "Remaining qemu processes (should be none):"
+                    pgrep -af qemu-system-x86_64 || true
+                '''
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                deleteDir()
+                git url: env.REPO_URL, branch: 'main'
+            }
+        }
+
+        stage('Setup') {
+            steps {
+                sh '''
+                    set -e
+                    bash setup.sh
+                '''
+            }
+        }
+
+        stage('Clone package-testing') {
+            steps {
+                sh '''
+                    set -e
+                    PT_DIR="${HOME}/package-testing"
+                    PT_URL="https://github.com/Percona-QA/package-testing.git"
+                    PT_BRANCH="qemu-tests"
+                    if [ -d "${PT_DIR}/.git" ]; then
+                        echo "Refreshing ${PT_DIR} on ${PT_BRANCH}"
+                        git -C "${PT_DIR}" fetch --quiet origin "${PT_BRANCH}"
+                        git -C "${PT_DIR}" checkout --quiet "${PT_BRANCH}"
+                        git -C "${PT_DIR}" reset --hard --quiet "origin/${PT_BRANCH}"
+                    else
+                        echo "Cloning ${PT_URL} (${PT_BRANCH}) -> ${PT_DIR}"
+                        git clone --depth 1 --branch "${PT_BRANCH}" "${PT_URL}" "${PT_DIR}"
+                    fi
+                '''
+            }
+        }
+
+        stage('Molecule (30 parallel QEMU VM Package Tests)') {
+            steps {
+                script {
+                    // 10 distros × 3 test types = 30 VMs in parallel.
+                    // Test types: pxb84 (install), pxb84-upgrade, pxb84-upstream.
+                    def distros = [
+                        'debian11-amd64', 'debian12-amd64', 'debian13-amd64',
+                        'ubuntu22-amd64', 'ubuntu24-amd64',
+                        'rocky9-amd64',   'rocky10-amd64',
+                        'oraclelinux9-amd64', 'oraclelinux10-amd64', 'al2023-amd64'
+                    ]
+                    // Per-test-type env: install tests 'testing'.
+                    // Upgrade starts from 'main' and upgrades to 'testing'.
+                    // Upstream tests PXB 8.4 against MySQL 8.4 (overrides global server_to_test).
+                    def testTypeEnv = [
+                        'pxb84'         : ['install_repo=testing'],
+                        'pxb84-upgrade' : ['install_repo=main', 'upgrade_repo=testing'],
+                        'pxb84-upstream': ['server_to_test=ms-84', 'install_repo=testing'],
+                    ]
+                    def branches = [:]
+                    for (d in distros) {
+                        for (t in testTypeEnv.keySet()) {
+                            def scenario = "${d}-${t}"
+                            def envForType = testTypeEnv[t]
+                            branches[scenario] = {
+                                stage(scenario) {
+                                    withEnv(envForType) {
+                                        try {
+                                            sh """
+                                                set -e
+                                                . \${VENV_DIR}/bin/activate
+                                                molecule create   -s ${scenario}
+                                                molecule converge -s ${scenario}
+                                            """
+                                        } finally {
+                                            // Always destroy — frees the qemu
+                                            // process even when converge failed.
+                                            sh """
+                                                set +e
+                                                . \${VENV_DIR}/bin/activate
+                                                molecule destroy -s ${scenario} || true
+                                            """
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    parallel branches
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh '''
+                set +e
+                if [ -d "${VENV_DIR}" ]; then
+                    . ${VENV_DIR}/bin/activate
+                    for d in debian11-amd64 debian12-amd64 debian13-amd64 \
+                             ubuntu22-amd64 ubuntu24-amd64 \
+                             rocky9-amd64 rocky10-amd64 \
+                             oraclelinux9-amd64 oraclelinux10-amd64 al2023-amd64; do
+                        for t in pxb84 pxb84-upgrade pxb84-upstream; do
+                            molecule destroy -s "${d}-${t}" || true
+                        done
+                    done
+                fi
+            '''
+        }
+    }
+}
