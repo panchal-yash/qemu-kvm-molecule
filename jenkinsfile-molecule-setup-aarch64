@@ -18,6 +18,7 @@ pipeline {
         VENV_DIR                     = "${env.HOME}/.venv/molecule_qemu"
         server_to_test               = "ps-84"
         ANSIBLE_DEPRECATION_WARNINGS = "False"
+        MOLECULE_GLOB                = "molecule/arm/*/molecule.yml"
     }
 
     stages {
