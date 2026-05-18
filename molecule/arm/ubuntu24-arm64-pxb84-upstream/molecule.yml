@@ -10,7 +10,7 @@ platforms:
     image: ${HOME}/qemu-images/noble-server-cloudimg-arm64.raw
     memory: 2048
     cpus: 2
-    disk_size: 20G
+    disk_size: 32G
     ssh_port: 2283
     ssh_user: ubuntu
     ssh_key: ~/.ssh/id_rsa

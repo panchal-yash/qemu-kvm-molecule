@@ -10,7 +10,7 @@ platforms:
     image: ${HOME}/qemu-images/debian-11-genericcloud-arm64.raw
     memory: 2048
     cpus: 2
-    disk_size: 20G
+    disk_size: 32G
     ssh_port: 2279
     ssh_user: debian
     ssh_key: ~/.ssh/id_rsa
