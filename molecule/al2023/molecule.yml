@@ -9,7 +9,7 @@ platforms:
     image: ${HOME}/qemu-images/al2023-amd64.raw
     memory: 2048
     cpus: 2
-    disk_size: 32G
+    disk_size: 12G
     ssh_port: 2272
     ssh_user: ec2-user
     ssh_key: ~/.ssh/id_rsa

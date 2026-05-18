@@ -26,3 +26,6 @@ provisioner:
 
 verifier:
   name: ansible
+
+
+
