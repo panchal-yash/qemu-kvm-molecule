@@ -9,7 +9,7 @@ platforms:
     image: ${HOME}/qemu-images/jammy-server-cloudimg-amd64.raw
     memory: 2048
     cpus: 2
-    disk_size: 12G
+    disk_size: 20G
     ssh_port: 2309
     ssh_user: ubuntu
     ssh_key: ~/.ssh/id_rsa
