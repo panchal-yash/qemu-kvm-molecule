@@ -13,7 +13,6 @@ platforms:
     ssh_port: 2320
     ssh_user: rocky
     ssh_key: ~/.ssh/id_rsa
-    disk_interface: virtio
 
 provisioner:
   name: ansible

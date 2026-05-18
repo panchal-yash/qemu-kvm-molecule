@@ -14,7 +14,6 @@ platforms:
     ssh_port: 2254
     ssh_user: debian
     ssh_key: ~/.ssh/id_rsa
-    disk_interface: virtio
 
 provisioner:
   name: ansible

@@ -13,7 +13,6 @@ platforms:
     ssh_port: 2327
     ssh_user: ec2-user
     ssh_key: ~/.ssh/id_rsa
-    disk_interface: virtio
 
 provisioner:
   name: ansible

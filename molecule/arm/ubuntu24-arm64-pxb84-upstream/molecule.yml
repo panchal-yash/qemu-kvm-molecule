@@ -14,7 +14,6 @@ platforms:
     ssh_port: 2283
     ssh_user: ubuntu
     ssh_key: ~/.ssh/id_rsa
-    disk_interface: virtio
 
 provisioner:
   name: ansible
