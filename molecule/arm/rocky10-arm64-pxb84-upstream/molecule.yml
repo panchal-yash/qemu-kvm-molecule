@@ -22,7 +22,7 @@ provisioner:
     create: ../../shared/create.yml
     prepare: ../../shared/prepare.yml
     destroy: ../../shared/destroy.yml
-    converge: ../../shared/converge-pxb84-upstream.yml
+    converge: ../../shared/converge-pxb84.yml
 
 verifier:
   name: ansible
